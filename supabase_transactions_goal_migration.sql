@@ -1,22 +1,33 @@
 -- Migration to add 'goal' transaction type support
 -- Run this after updating the transactions table schema
 
--- Step 1: Update the type constraint to include 'goal'
+-- Step 1: Update the type constraint to include 'goal' and 'goal_withdraw'
 ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_type_check;
 ALTER TABLE transactions ADD CONSTRAINT transactions_type_check 
-  CHECK (type IN ('expense', 'income', 'transfer', 'goal'));
+  CHECK (type IN ('expense', 'income', 'transfer', 'goal', 'goal_withdraw'));
 
--- Step 2: Update the account reference constraint to handle goal type
--- Goals: from_account_id for deposits (like expense), to_account_id for withdrawals (like income)
+-- Step 2: Migrate existing goal transactions
+-- Convert existing "goal" transactions with to_account_id (withdrawals) to "goal_withdraw"
+UPDATE transactions
+SET type = 'goal_withdraw'
+WHERE type = 'goal' AND to_account_id IS NOT NULL AND from_account_id IS NULL;
+
+-- Step 3: Update the account reference constraint to handle goal types
+-- Goal deposits: from_account_id (like expense)
+-- Goal withdrawals: to_account_id (like income)
+-- Drop all possible constraint names that might exist
+ALTER TABLE transactions DROP CONSTRAINT IF EXISTS check_transaction_accounts;
 ALTER TABLE transactions DROP CONSTRAINT IF EXISTS check_expense_accounts;
+-- Now add the new constraint
 ALTER TABLE transactions ADD CONSTRAINT check_transaction_accounts CHECK (
   (type = 'expense' AND from_account_id IS NOT NULL AND to_account_id IS NULL) OR
   (type = 'income' AND from_account_id IS NULL AND to_account_id IS NOT NULL) OR
   (type = 'transfer' AND from_account_id IS NOT NULL AND to_account_id IS NOT NULL AND from_account_id != to_account_id) OR
-  (type = 'goal' AND ((from_account_id IS NOT NULL AND to_account_id IS NULL) OR (from_account_id IS NULL AND to_account_id IS NOT NULL)))
+  (type = 'goal' AND from_account_id IS NOT NULL AND to_account_id IS NULL) OR
+  (type = 'goal_withdraw' AND from_account_id IS NULL AND to_account_id IS NOT NULL)
 );
 
--- Step 3: Update the function to handle goal transactions on insert
+-- Step 4: Update the function to handle goal transactions on insert
 CREATE OR REPLACE FUNCTION update_account_balance_on_transaction()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -58,7 +69,7 @@ BEGIN
   END IF;
 
   -- Handle goal withdraw: add to to_account (like income)
-  IF NEW.type = 'goal' AND NEW.to_account_id IS NOT NULL THEN
+  IF NEW.type = 'goal_withdraw' AND NEW.to_account_id IS NOT NULL THEN
     UPDATE accounts
     SET balance = balance + NEW.amount,
         updated_at = TIMEZONE('utc', NOW())
@@ -69,7 +80,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Step 4: Update the function to handle goal transactions on delete
+-- Step 5: Update the function to handle goal transactions on delete
 CREATE OR REPLACE FUNCTION revert_account_balance_on_transaction_delete()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -111,7 +122,7 @@ BEGIN
   END IF;
 
   -- Handle goal withdraw: deduct from to_account (like income)
-  IF OLD.type = 'goal' AND OLD.to_account_id IS NOT NULL THEN
+  IF OLD.type = 'goal_withdraw' AND OLD.to_account_id IS NOT NULL THEN
     UPDATE accounts
     SET balance = balance - OLD.amount,
         updated_at = TIMEZONE('utc', NOW())
@@ -122,7 +133,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Step 5: Update the function to handle goal transactions on update
+-- Step 6: Update the function to handle goal transactions on update
 CREATE OR REPLACE FUNCTION update_account_balance_on_transaction_update()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -160,7 +171,7 @@ BEGIN
     WHERE id = OLD.from_account_id;
   END IF;
 
-  IF OLD.type = 'goal' AND OLD.to_account_id IS NOT NULL THEN
+  IF OLD.type = 'goal_withdraw' AND OLD.to_account_id IS NOT NULL THEN
     UPDATE accounts
     SET balance = balance - OLD.amount,
         updated_at = TIMEZONE('utc', NOW())
@@ -201,7 +212,7 @@ BEGIN
     WHERE id = NEW.from_account_id;
   END IF;
 
-  IF NEW.type = 'goal' AND NEW.to_account_id IS NOT NULL THEN
+  IF NEW.type = 'goal_withdraw' AND NEW.to_account_id IS NOT NULL THEN
     UPDATE accounts
     SET balance = balance + NEW.amount,
         updated_at = TIMEZONE('utc', NOW())
