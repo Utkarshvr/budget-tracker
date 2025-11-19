@@ -268,7 +268,7 @@ export default function GoalsScreen() {
         : {
             user_id: session.user.id,
             note: `Goal: ${actionModal.goal.title} (Withdraw)`,
-            type: "goal" as const,
+            type: "goal_withdraw" as const,
             amount: amountSmallest,
             from_account_id: null,
             to_account_id: actionAccountId,

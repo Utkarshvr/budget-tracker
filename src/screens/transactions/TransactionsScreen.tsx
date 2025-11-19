@@ -130,8 +130,7 @@ export default function TransactionsScreen() {
               const isIncome = transaction.type === "income";
               const isTransfer = transaction.type === "transfer";
               const isGoal = transaction.type === "goal";
-              const isGoalDeposit = isGoal && transaction.from_account_id !== null;
-              const isGoalWithdraw = isGoal && transaction.to_account_id !== null;
+              const isGoalWithdraw = transaction.type === "goal_withdraw";
 
               return (
                 <View
@@ -147,6 +146,8 @@ export default function TransactionsScreen() {
                           ? "bg-green-500"
                           : isTransfer
                           ? "bg-blue-500"
+                          : isGoalWithdraw
+                          ? "bg-green-500"
                           : "bg-purple-500"
                       }`}
                     >
@@ -158,6 +159,8 @@ export default function TransactionsScreen() {
                             ? "arrow-upward"
                             : isTransfer
                             ? "swap-horiz"
+                            : isGoalWithdraw
+                            ? "undo"
                             : "savings"
                         }
                         size={20}
@@ -169,7 +172,7 @@ export default function TransactionsScreen() {
                         {transaction.note}
                       </Text>
                       <Text className="text-neutral-400 text-sm mt-1 capitalize">
-                        {transaction.type}
+                        {transaction.type.replace("_", " ")}
                       </Text>
                       <Text className="text-neutral-500 text-xs mt-1">
                         {formatDate(transaction.created_at)}
@@ -181,14 +184,14 @@ export default function TransactionsScreen() {
                           ? "text-red-400"
                           : isIncome
                           ? "text-green-400"
-                          : isGoalDeposit
-                          ? "text-purple-400"
                           : isGoalWithdraw
                           ? "text-green-400"
+                          : isGoal
+                          ? "text-purple-400"
                           : ""
                       }`}
                     >
-                      {isExpense ? "-" : isIncome || isGoalWithdraw ? "+" : isGoalDeposit ? "-" : ""}
+                      {isExpense ? "-" : isIncome || isGoalWithdraw ? "+" : isGoal ? "-" : ""}
                       {formatAmount(transaction.amount, transaction.currency)}
                     </Text>
                   </View>
@@ -251,7 +254,7 @@ export default function TransactionsScreen() {
                         )}
                       </View>
                     )}
-                    {isGoalDeposit && transaction.from_account && (
+                    {isGoal && transaction.from_account && (
                       <View className="flex-row items-center">
                         <MaterialIcons
                           name="savings"
@@ -267,7 +270,7 @@ export default function TransactionsScreen() {
                     {isGoalWithdraw && transaction.to_account && (
                       <View className="flex-row items-center">
                         <MaterialIcons
-                          name="savings"
+                          name="undo"
                           size={16}
                           color="#9ca3af"
                           style={{ marginRight: 6 }}

@@ -1,6 +1,6 @@
 import { Account } from "./account";
 
-export type TransactionType = "expense" | "income" | "transfer" | "goal";
+export type TransactionType = "expense" | "income" | "transfer" | "goal" | "goal_withdraw";
 
 export interface Transaction {
   id: string;
