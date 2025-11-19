@@ -129,6 +129,9 @@ export default function TransactionsScreen() {
               const isExpense = transaction.type === "expense";
               const isIncome = transaction.type === "income";
               const isTransfer = transaction.type === "transfer";
+              const isGoal = transaction.type === "goal";
+              const isGoalDeposit = isGoal && transaction.from_account_id !== null;
+              const isGoalWithdraw = isGoal && transaction.to_account_id !== null;
 
               return (
                 <View
@@ -142,7 +145,9 @@ export default function TransactionsScreen() {
                           ? "bg-red-500"
                           : isIncome
                           ? "bg-green-500"
-                          : "bg-blue-500"
+                          : isTransfer
+                          ? "bg-blue-500"
+                          : "bg-purple-500"
                       }`}
                     >
                       <MaterialIcons
@@ -151,7 +156,9 @@ export default function TransactionsScreen() {
                             ? "arrow-downward"
                             : isIncome
                             ? "arrow-upward"
-                            : "swap-horiz"
+                            : isTransfer
+                            ? "swap-horiz"
+                            : "savings"
                         }
                         size={20}
                         color="white"
@@ -170,10 +177,18 @@ export default function TransactionsScreen() {
                     </View>
                     <Text
                       className={`text-lg font-bold ${
-                        isExpense ? "text-red-400" : "text-green-400"
+                        isExpense
+                          ? "text-red-400"
+                          : isIncome
+                          ? "text-green-400"
+                          : isGoalDeposit
+                          ? "text-purple-400"
+                          : isGoalWithdraw
+                          ? "text-green-400"
+                          : ""
                       }`}
                     >
-                      {isExpense ? "-" : isIncome ? "+" : ""}
+                      {isExpense ? "-" : isIncome || isGoalWithdraw ? "+" : isGoalDeposit ? "-" : ""}
                       {formatAmount(transaction.amount, transaction.currency)}
                     </Text>
                   </View>
@@ -234,6 +249,32 @@ export default function TransactionsScreen() {
                             </Text>
                           </View>
                         )}
+                      </View>
+                    )}
+                    {isGoalDeposit && transaction.from_account && (
+                      <View className="flex-row items-center">
+                        <MaterialIcons
+                          name="savings"
+                          size={16}
+                          color="#9ca3af"
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text className="text-neutral-400 text-xs">
+                          From: {transaction.from_account.name} → Goal
+                        </Text>
+                      </View>
+                    )}
+                    {isGoalWithdraw && transaction.to_account && (
+                      <View className="flex-row items-center">
+                        <MaterialIcons
+                          name="savings"
+                          size={16}
+                          color="#9ca3af"
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text className="text-neutral-400 text-xs">
+                          From: Goal → {transaction.to_account.name}
+                        </Text>
                       </View>
                     )}
                   </View>
