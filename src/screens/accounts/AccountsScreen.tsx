@@ -69,6 +69,7 @@ function formatDate(dateString: string): string {
 export default function AccountsScreen() {
   const { session } = useSupabaseSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountSavings, setAccountSavings] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [formSheetVisible, setFormSheetVisible] = useState(false);
@@ -80,6 +81,12 @@ export default function AccountsScreen() {
       fetchAccounts();
     }
   }, [session]);
+
+  useEffect(() => {
+    if (session && accounts.length > 0) {
+      fetchAccountSavings();
+    }
+  }, [session, accounts]);
 
   const fetchAccounts = async () => {
     if (!session?.user) return;
@@ -101,9 +108,69 @@ export default function AccountsScreen() {
     }
   };
 
-  const handleRefresh = () => {
+  const fetchAccountSavings = async () => {
+    if (!session?.user) return;
+
+    try {
+      const accountIds = accounts.map((acc) => acc.id);
+      if (accountIds.length === 0) {
+        setAccountSavings({});
+        return;
+      }
+
+      // Fetch all goal transactions (deposits) where from_account_id matches
+      const { data: goalDeposits, error: depositsError } = await supabase
+        .from("transactions")
+        .select("from_account_id, amount")
+        .eq("user_id", session.user.id)
+        .eq("type", "goal")
+        .in("from_account_id", accountIds);
+
+      if (depositsError) throw depositsError;
+
+      // Fetch all goal_withdraw transactions (withdrawals) where to_account_id matches
+      const { data: goalWithdrawals, error: withdrawalsError } = await supabase
+        .from("transactions")
+        .select("to_account_id, amount")
+        .eq("user_id", session.user.id)
+        .eq("type", "goal_withdraw")
+        .in("to_account_id", accountIds);
+
+      if (withdrawalsError) throw withdrawalsError;
+
+      // Calculate savings for each account
+      const savings: Record<string, number> = {};
+
+      // Initialize all accounts with 0 savings
+      accountIds.forEach((id) => {
+        savings[id] = 0;
+      });
+
+      // Add deposits (money going into savings)
+      goalDeposits?.forEach((tx) => {
+        if (tx.from_account_id) {
+          savings[tx.from_account_id] = (savings[tx.from_account_id] || 0) + tx.amount;
+        }
+      });
+
+      // Subtract withdrawals (money coming back from savings)
+      goalWithdrawals?.forEach((tx) => {
+        if (tx.to_account_id) {
+          savings[tx.to_account_id] = (savings[tx.to_account_id] || 0) - tx.amount;
+        }
+      });
+
+      setAccountSavings(savings);
+    } catch (error: any) {
+      console.error("Error fetching account savings:", error);
+      // Don't show alert for savings fetch errors, just log it
+    }
+  };
+
+  const handleRefresh = async () => {
     setRefreshing(true);
-    fetchAccounts();
+    await fetchAccounts();
+    // fetchAccountSavings will be called automatically via useEffect when accounts update
   };
 
   const handleAddAccount = () => {
@@ -276,6 +343,14 @@ export default function AccountsScreen() {
                   <Text className="text-white text-2xl font-bold">
                     {formatBalance(account.balance, account.currency)}
                   </Text>
+                  {accountSavings[account.id] !== undefined && accountSavings[account.id] > 0 && (
+                    <View className="mt-2 pt-2 border-t border-neutral-700">
+                      <Text className="text-neutral-400 text-sm mb-1">In Savings</Text>
+                      <Text className="text-green-400 text-xl font-semibold">
+                        {formatBalance(accountSavings[account.id], account.currency)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </TouchableOpacity>
             ))}
@@ -326,6 +401,14 @@ export default function AccountsScreen() {
                   <Text className="text-white text-2xl font-bold">
                     {formatBalance(account.balance, account.currency)}
                   </Text>
+                  {accountSavings[account.id] !== undefined && accountSavings[account.id] > 0 && (
+                    <View className="mt-2 pt-2 border-t border-neutral-700">
+                      <Text className="text-neutral-400 text-sm mb-1">In Savings</Text>
+                      <Text className="text-green-400 text-xl font-semibold">
+                        {formatBalance(accountSavings[account.id], account.currency)}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </TouchableOpacity>
             ))}
