@@ -16,6 +16,7 @@ import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Account } from "@/types/account";
 import { TransactionFormData, TransactionType } from "@/types/transaction";
 import { Category } from "@/types/category";
+import { Goal, FUND_TYPE_CONFIG } from "@/types/goal";
 import { PrimaryButton } from "@/screens/auth/components/PrimaryButton";
 import { CategorySelectSheet } from "./components/CategorySelectSheet";
 
@@ -29,6 +30,7 @@ export default function AddTransactionScreen() {
   const router = useRouter();
   const { session } = useSupabaseSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [funds, setFunds] = useState<Goal[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
@@ -36,6 +38,7 @@ export default function AddTransactionScreen() {
   const [showFromAccounts, setShowFromAccounts] = useState(false);
   const [showToAccounts, setShowToAccounts] = useState(false);
   const [showCategorySheet, setShowCategorySheet] = useState(false);
+  const [useFromFund, setUseFromFund] = useState(false); // Toggle between account and fund
 
   const [formData, setFormData] = useState<TransactionFormData>({
     note: "",
@@ -43,6 +46,7 @@ export default function AddTransactionScreen() {
     amount: "",
     from_account_id: null,
     to_account_id: null,
+    fund_id: null,
     category_id: null,
   });
 
@@ -54,6 +58,7 @@ export default function AddTransactionScreen() {
     if (session) {
       fetchAccounts();
       fetchCategories();
+      fetchFunds();
     }
   }, [session]);
 
@@ -104,6 +109,25 @@ export default function AddTransactionScreen() {
     }
   };
 
+  const fetchFunds = async () => {
+    if (!session?.user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("goals")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .eq("status", "active")
+        .gt("saved_amount", 0) // Only show funds with money
+        .order("title", { ascending: true });
+
+      if (error) throw error;
+      setFunds(data || []);
+    } catch (error: any) {
+      console.error("Error fetching funds:", error);
+    }
+  };
+
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof TransactionFormData, string>> = {};
 
@@ -120,8 +144,16 @@ export default function AddTransactionScreen() {
       }
     }
 
-    if (formData.type === "expense" && !formData.from_account_id) {
-      newErrors.from_account_id = "From account is required for expenses";
+    if (formData.type === "expense") {
+      if (useFromFund) {
+        if (!formData.fund_id) {
+          newErrors.fund_id = "Fund selection is required";
+        }
+      } else {
+        if (!formData.from_account_id) {
+          newErrors.from_account_id = "From account is required for expenses";
+        }
+      }
     }
 
     if (formData.type === "income" && !formData.to_account_id) {
@@ -159,9 +191,23 @@ export default function AddTransactionScreen() {
         parseFloat(formData.amount) * 100
       );
 
-      // Get currency from the account
+      // Get currency from the account or fund
       let currency = "INR"; // default
-      if (formData.type === "expense" && formData.from_account_id) {
+      let transactionType = formData.type;
+      
+      if (formData.type === "expense" && useFromFund && formData.fund_id) {
+        // Using fund for expense
+        const fund = funds.find((f) => f.id === formData.fund_id);
+        currency = fund?.currency || "INR";
+        transactionType = "fund_expense";
+        
+        // Validate fund has enough balance
+        if (fund && fund.saved_amount < amountInSmallestUnit) {
+          Alert.alert("Error", "Insufficient fund balance");
+          setSubmitting(false);
+          return;
+        }
+      } else if (formData.type === "expense" && formData.from_account_id) {
         const account = accounts.find((a) => a.id === formData.from_account_id);
         currency = account?.currency || "INR";
       } else if (formData.type === "income" && formData.to_account_id) {
@@ -176,10 +222,11 @@ export default function AddTransactionScreen() {
       const { error } = await supabase.from("transactions").insert({
         user_id: session.user.id,
         note: formData.note.trim(),
-        type: formData.type,
+        type: transactionType,
         amount: amountInSmallestUnit,
-        from_account_id: formData.from_account_id,
+        from_account_id: transactionType === "fund_expense" ? null : formData.from_account_id,
         to_account_id: formData.to_account_id,
+        fund_id: transactionType === "fund_expense" ? formData.fund_id : null,
         category_id: formData.category_id,
         currency: currency,
       });
@@ -217,12 +264,14 @@ export default function AddTransactionScreen() {
       // Reset account selections when type changes
       from_account_id: null,
       to_account_id: null,
+      fund_id: null,
       // Reset category for transfer type
       category_id: type === "transfer" ? null : formData.category_id,
     });
     setErrors({});
     setShowFromAccounts(false);
     setShowToAccounts(false);
+    setUseFromFund(false); // Reset fund toggle
     if (type === "transfer") {
       setSelectedCategory(null);
     }
@@ -327,90 +376,209 @@ export default function AddTransactionScreen() {
           )}
         </View>
 
-        {/* From Account (for Expense and Transfer) */}
+        {/* From Account or Fund (for Expense and Transfer) */}
         {(formData.type === "expense" || formData.type === "transfer") && (
           <View className="mb-6">
-            <Text className="text-sm font-medium text-neutral-300 mb-2">
-              From
-            </Text>
-            {accounts.length === 0 ? (
-              <View className="bg-neutral-800 rounded-xl px-4 py-3">
-                <Text className="text-neutral-500 text-base">
-                  No accounts available. Please add an account first.
-                </Text>
-              </View>
-            ) : (
-              <>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-sm font-medium text-neutral-300">
+                From
+              </Text>
+              {formData.type === "expense" && funds.length > 0 && (
                 <TouchableOpacity
-                  onPress={() => setShowFromAccounts(!showFromAccounts)}
-                  className="bg-neutral-800 rounded-xl px-4 py-3 flex-row items-center justify-between"
+                  onPress={() => {
+                    setUseFromFund(!useFromFund);
+                    setFormData({
+                      ...formData,
+                      from_account_id: null,
+                      fund_id: null,
+                    });
+                  }}
+                  className="flex-row items-center"
                 >
-                  <View className="flex-row items-center flex-1">
-                    <MaterialIcons
-                      name="account-balance"
-                      size={20}
-                      color="white"
-                      style={{ marginRight: 12 }}
-                    />
-                    <Text className="text-white text-base flex-1">
-                      {formData.from_account_id
-                        ? accounts.find((a) => a.id === formData.from_account_id)
-                            ?.name || "Select account"
-                        : "Select account"}
+                  <MaterialIcons
+                    name={useFromFund ? "account-balance-wallet" : "account-balance"}
+                    size={16}
+                    color="#22c55e"
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text className="text-green-500 text-xs font-medium">
+                    Use {useFromFund ? "Account" : "Savings Fund"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {formData.type === "expense" && useFromFund ? (
+              // Fund Selection for Expenses
+              <>
+                {funds.length === 0 ? (
+                  <View className="bg-neutral-800 rounded-xl px-4 py-3">
+                    <Text className="text-neutral-500 text-base">
+                      No savings funds with balance available.
                     </Text>
                   </View>
-                  <MaterialIcons
-                    name={showFromAccounts ? "expand-less" : "expand-more"}
-                    size={24}
-                    color="white"
-                  />
-                </TouchableOpacity>
-                {showFromAccounts && (
-                  <View className="bg-neutral-800 rounded-xl mt-2">
-                    {accounts.map((account) => (
-                      <TouchableOpacity
-                        key={account.id}
-                        onPress={() => {
-                          setFormData({
-                            ...formData,
-                            from_account_id: account.id,
-                          });
-                          setShowFromAccounts(false);
-                        }}
-                        className={`px-4 py-3 border-b border-neutral-700 ${
-                          formData.from_account_id === account.id
-                            ? "bg-green-600/20"
-                            : ""
-                        }`}
-                      >
-                        <View className="flex-row items-center">
-                          <MaterialIcons
-                            name="account-balance"
-                            size={20}
-                            color="white"
-                            style={{ marginRight: 12 }}
-                          />
-                          <Text className="text-white text-base flex-1">
-                            {account.name}
-                          </Text>
-                          {formData.from_account_id === account.id && (
-                            <MaterialIcons
-                              name="check-circle"
-                              size={20}
-                              color="#22c55e"
-                            />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => setShowFromAccounts(!showFromAccounts)}
+                      className="bg-neutral-800 rounded-xl px-4 py-3 flex-row items-center justify-between"
+                    >
+                      <View className="flex-row items-center flex-1">
+                        <MaterialIcons
+                          name="account-balance-wallet"
+                          size={20}
+                          color="white"
+                          style={{ marginRight: 12 }}
+                        />
+                        <Text className="text-white text-base flex-1">
+                          {formData.fund_id
+                            ? funds.find((f) => f.id === formData.fund_id)?.title ||
+                              "Select fund"
+                            : "Select savings fund"}
+                        </Text>
+                      </View>
+                      <MaterialIcons
+                        name={showFromAccounts ? "expand-less" : "expand-more"}
+                        size={24}
+                        color="white"
+                      />
+                    </TouchableOpacity>
+                    {showFromAccounts && (
+                      <View className="bg-neutral-800 rounded-xl mt-2">
+                        {funds.map((fund) => {
+                          const fundConfig = FUND_TYPE_CONFIG[fund.fund_type] || FUND_TYPE_CONFIG.budget_fund;
+                          return (
+                            <TouchableOpacity
+                              key={fund.id}
+                              onPress={() => {
+                                setFormData({
+                                  ...formData,
+                                  fund_id: fund.id,
+                                });
+                                setShowFromAccounts(false);
+                              }}
+                              className={`px-4 py-3 border-b border-neutral-700 ${
+                                formData.fund_id === fund.id ? "bg-green-600/20" : ""
+                              }`}
+                            >
+                              <View className="flex-row items-center">
+                                <Text className="text-xl mr-3">{fundConfig.emoji}</Text>
+                                <View className="flex-1">
+                                  <Text className="text-white text-base font-semibold">
+                                    {fund.title}
+                                  </Text>
+                                  <Text className="text-neutral-400 text-xs">
+                                    Balance: {(fund.saved_amount / 100).toLocaleString(
+                                      "en-IN",
+                                      {
+                                        style: "currency",
+                                        currency: fund.currency,
+                                      }
+                                    )}
+                                  </Text>
+                                </View>
+                                {formData.fund_id === fund.id && (
+                                  <MaterialIcons
+                                    name="check-circle"
+                                    size={20}
+                                    color="#22c55e"
+                                  />
+                                )}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </>
+                )}
+                {errors.fund_id && (
+                  <Text className="text-red-500 text-sm mt-1">{errors.fund_id}</Text>
                 )}
               </>
-            )}
-            {errors.from_account_id && (
-              <Text className="text-red-500 text-sm mt-1">
-                {errors.from_account_id}
-              </Text>
+            ) : (
+              // Account Selection
+              <>
+                {accounts.length === 0 ? (
+                  <View className="bg-neutral-800 rounded-xl px-4 py-3">
+                    <Text className="text-neutral-500 text-base">
+                      No accounts available. Please add an account first.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      onPress={() => setShowFromAccounts(!showFromAccounts)}
+                      className="bg-neutral-800 rounded-xl px-4 py-3 flex-row items-center justify-between"
+                    >
+                      <View className="flex-row items-center flex-1">
+                        <MaterialIcons
+                          name="account-balance"
+                          size={20}
+                          color="white"
+                          style={{ marginRight: 12 }}
+                        />
+                        <Text className="text-white text-base flex-1">
+                          {formData.from_account_id
+                            ? accounts.find((a) => a.id === formData.from_account_id)
+                                ?.name || "Select account"
+                            : "Select account"}
+                        </Text>
+                      </View>
+                      <MaterialIcons
+                        name={showFromAccounts ? "expand-less" : "expand-more"}
+                        size={24}
+                        color="white"
+                      />
+                    </TouchableOpacity>
+                    {showFromAccounts && (
+                      <View className="bg-neutral-800 rounded-xl mt-2">
+                        {accounts.map((account) => (
+                          <TouchableOpacity
+                            key={account.id}
+                            onPress={() => {
+                              setFormData({
+                                ...formData,
+                                from_account_id: account.id,
+                              });
+                              setShowFromAccounts(false);
+                            }}
+                            className={`px-4 py-3 border-b border-neutral-700 ${
+                              formData.from_account_id === account.id
+                                ? "bg-green-600/20"
+                                : ""
+                            }`}
+                          >
+                            <View className="flex-row items-center">
+                              <MaterialIcons
+                                name="account-balance"
+                                size={20}
+                                color="white"
+                                style={{ marginRight: 12 }}
+                              />
+                              <Text className="text-white text-base flex-1">
+                                {account.name}
+                              </Text>
+                              {formData.from_account_id === account.id && (
+                                <MaterialIcons
+                                  name="check-circle"
+                                  size={20}
+                                  color="#22c55e"
+                                />
+                              )}
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </>
+                )}
+                {errors.from_account_id && (
+                  <Text className="text-red-500 text-sm mt-1">
+                    {errors.from_account_id}
+                  </Text>
+                )}
+              </>
             )}
           </View>
         )}
