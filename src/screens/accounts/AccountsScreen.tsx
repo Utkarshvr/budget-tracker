@@ -89,6 +89,9 @@ export default function AccountsScreen() {
   const [formSheetVisible, setFormSheetVisible] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>(
+    {}
+  );
 
   useEffect(() => {
     if (session) {
@@ -127,11 +130,9 @@ export default function AccountsScreen() {
 
     try {
       const { data, error } = await supabase
-        .from("categories")
-        .select("id,name,emoji,fund_balance,fund_currency,fund_account_id,category_type")
-        .eq("user_id", session.user.id)
-        .eq("category_type", "fund")
-        .not("fund_account_id", "is", null);
+        .from("account_funds")
+        .select("id,name,emoji,balance,currency,account_id")
+        .eq("user_id", session.user.id);
 
       if (error) throw error;
 
@@ -149,11 +150,11 @@ export default function AccountsScreen() {
         }
       > = {};
 
-      (data || []).forEach((category) => {
-        const accountId = category.fund_account_id as string | null;
+      (data || []).forEach((fund) => {
+        const accountId = fund.account_id as string | null;
         if (!accountId) return;
 
-        const balance = category.fund_balance || 0;
+        const balance = fund.balance || 0;
         if (!allocations[accountId]) {
           const accountCurrency =
             accounts.find((a) => a.id === accountId)?.currency || "INR";
@@ -166,9 +167,9 @@ export default function AccountsScreen() {
 
         allocations[accountId].total += balance;
         allocations[accountId].items.push({
-          id: category.id,
-          name: category.name,
-          emoji: category.emoji,
+          id: fund.id,
+          name: fund.name,
+          emoji: fund.emoji,
           balance,
         });
       });
@@ -185,6 +186,15 @@ export default function AccountsScreen() {
       });
 
       setAccountFunds(allocations);
+      setExpandedAccounts((prev) => {
+        const next = { ...prev };
+        accounts.forEach((account) => {
+          if (typeof next[account.id] === "undefined") {
+            next[account.id] = true;
+          }
+        });
+        return next;
+      });
     } catch (error: any) {
       console.error("Error fetching account fund allocations:", error);
       setAccountFunds({});
@@ -196,35 +206,53 @@ export default function AccountsScreen() {
     if (!fundInfo) return null;
 
     const unallocated = Math.max(account.balance - fundInfo.total, 0);
+    const isExpanded = expandedAccounts[account.id] ?? true;
 
     return (
       <View className="mt-3 bg-neutral-900/60 rounded-2xl p-4">
-        <Text className="text-white text-sm font-semibold mb-2">
-          Funds Allocated
-        </Text>
-        {fundInfo.items.length === 0 ? (
-          <Text className="text-neutral-400 text-xs">
-            No money reserved. All of this balance is unallocated.
-          </Text>
-        ) : (
-          fundInfo.items.map((item) => (
-            <View
-              key={item.id}
-              className="flex-row items-center justify-between mb-2"
-            >
-              <View className="flex-row items-center">
-                <Text style={{ fontSize: 18, marginRight: 8 }}>{item.emoji}</Text>
-                <Text className="text-white text-sm">{item.name}</Text>
-              </View>
-              <Text className="text-green-400 text-sm font-semibold">
-                {formatBalance(item.balance, fundInfo.currency)}
+        <TouchableOpacity
+          className="flex-row items-center justify-between mb-2"
+          onPress={() =>
+            setExpandedAccounts((prev) => ({
+              ...prev,
+              [account.id]: !isExpanded,
+            }))
+          }
+        >
+          <Text className="text-white text-sm font-semibold">Funds</Text>
+          <MaterialIcons
+            name={isExpanded ? "expand-less" : "expand-more"}
+            size={22}
+            color="#9ca3af"
+          />
+        </TouchableOpacity>
+        {isExpanded && (
+          <>
+            {fundInfo.items.length === 0 ? (
+              <Text className="text-neutral-400 text-xs">
+                Nothing reserved yet. All of this balance is ready to plan.
               </Text>
-            </View>
-          ))
+            ) : (
+              fundInfo.items.map((item) => (
+                <View
+                  key={item.id}
+                  className="flex-row items-center justify-between mb-2"
+                >
+                  <View className="flex-row items-center">
+                    <Text style={{ fontSize: 18, marginRight: 8 }}>{item.emoji}</Text>
+                    <Text className="text-white text-sm">{item.name}</Text>
+                  </View>
+                  <Text className="text-green-400 text-sm font-semibold">
+                    {formatBalance(item.balance, fundInfo.currency)}
+                  </Text>
+                </View>
+              ))
+            )}
+          </>
         )}
         <View className="mt-3 pt-3 border-t border-neutral-800">
           <Text className="text-neutral-400 text-xs uppercase tracking-wide">
-            Unallocated
+            Free to plan
           </Text>
           <Text className="text-white text-lg font-bold mt-1">
             {formatBalance(unallocated, account.currency)}

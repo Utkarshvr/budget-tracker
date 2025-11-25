@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { TransactionFormData, TransactionType } from "@/types/transaction";
 import { Category } from "@/types/category";
 import { PrimaryButton } from "@/screens/auth/components/PrimaryButton";
 import { CategorySelectSheet } from "./components/CategorySelectSheet";
+import { Fund } from "@/types/fund";
 
 const TRANSACTION_TYPES: { value: TransactionType; label: string; icon: string }[] = [
   { value: "expense", label: "Expense", icon: "arrow-downward" },
@@ -25,12 +26,22 @@ const TRANSACTION_TYPES: { value: TransactionType; label: string; icon: string }
   { value: "transfer", label: "Transfer", icon: "swap-horiz" },
 ];
 
+const formatFundBalance = (amount: number, currency: string) => {
+  const mainUnit = amount / 100;
+  return `${currency} ${mainUnit.toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
 export default function AddTransactionScreen() {
   const router = useRouter();
   const { session } = useSupabaseSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [funds, setFunds] = useState<Fund[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedFundId, setSelectedFundId] = useState<string | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showFromAccounts, setShowFromAccounts] = useState(false);
@@ -54,6 +65,7 @@ export default function AddTransactionScreen() {
     if (session) {
       fetchAccounts();
       fetchCategories();
+      fetchFunds();
     }
   }, [session]);
 
@@ -66,6 +78,21 @@ export default function AddTransactionScreen() {
       setSelectedCategory(null);
     }
   }, [formData.category_id, categories]);
+
+  const selectedFund = useMemo(
+    () => (selectedFundId ? funds.find((fund) => fund.id === selectedFundId) || null : null),
+    [selectedFundId, funds]
+  );
+
+  useEffect(() => {
+    if (
+      selectedFund &&
+      formData.from_account_id &&
+      selectedFund.account_id !== formData.from_account_id
+    ) {
+      setSelectedFundId(null);
+    }
+  }, [selectedFund, formData.from_account_id]);
 
   const fetchAccounts = async () => {
     if (!session?.user) return;
@@ -104,6 +131,21 @@ export default function AddTransactionScreen() {
     }
   };
 
+  const fetchFunds = async () => {
+    if (!session?.user) return;
+    try {
+      const { data, error } = await supabase
+        .from("account_funds")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      setFunds(data || []);
+    } catch (error: any) {
+      console.error("Error fetching funds:", error);
+    }
+  };
+
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof TransactionFormData, string>> = {};
 
@@ -120,39 +162,24 @@ export default function AddTransactionScreen() {
       }
     }
 
-    const fundCategory =
-      formData.category_id &&
-      categories.find(
-        (c) => c.id === formData.category_id && c.category_type === "fund"
-      );
-
     if (formData.type === "expense") {
       if (!formData.from_account_id) {
         newErrors.from_account_id = "From account is required for expenses";
       }
 
-      if (fundCategory) {
+      if (selectedFund) {
         const amountNum = parseFloat(formData.amount || "0");
         const amountSmallest = Math.round(amountNum * 100);
 
-        if (
-          fundCategory.fund_balance !== null &&
-          amountSmallest > fundCategory.fund_balance
-        ) {
+        if (amountSmallest > selectedFund.balance) {
           newErrors.amount = "Amount exceeds fund balance";
         }
 
         if (
-          fundCategory.fund_account_id &&
           formData.from_account_id &&
-          fundCategory.fund_account_id !== formData.from_account_id
+          selectedFund.account_id !== formData.from_account_id
         ) {
-          newErrors.from_account_id =
-            "Use the account linked to this fund category";
-        }
-
-        if (!fundCategory.fund_account_id && !formData.from_account_id) {
-          newErrors.from_account_id = "Select an account for this fund";
+          newErrors.from_account_id = "Select the account linked to this fund";
         }
       }
     }
@@ -223,20 +250,12 @@ export default function AddTransactionScreen() {
 
       if (error) throw error;
 
-      const fundCategory =
-        formData.type === "expense" &&
-        formData.category_id &&
-        categories.find(
-          (c) => c.id === formData.category_id && c.category_type === "fund"
-        );
-
-      if (fundCategory) {
+      if (formData.type === "expense" && selectedFund) {
         const { error: fundError } = await supabase.rpc(
-          "adjust_category_fund_balance",
+          "adjust_account_fund_balance",
           {
-            p_category_id: fundCategory.id,
+            p_fund_id: selectedFund.id,
             p_amount_delta: -amountInSmallestUnit,
-            p_account_id: null,
           }
         );
 
@@ -244,33 +263,10 @@ export default function AddTransactionScreen() {
           await supabase.from("transactions").delete().eq("id", data.id);
           throw fundError;
         }
-
-        setCategories((prev) =>
-          prev.map((cat) =>
-            cat.id === fundCategory.id
-              ? {
-                  ...cat,
-                  fund_balance: Math.max(
-                    0,
-                    (cat.fund_balance || 0) - amountInSmallestUnit
-                  ),
-                }
-              : cat
-          )
-        );
-        setSelectedCategory((prev) =>
-          prev && prev.id === fundCategory.id
-            ? {
-                ...prev,
-                fund_balance: Math.max(
-                  0,
-                  (prev.fund_balance || 0) - amountInSmallestUnit
-                ),
-              }
-            : prev
-        );
+        fetchFunds();
       }
 
+      setSelectedFundId(null);
       Alert.alert("Success", "Transaction added successfully", [
         {
           text: "OK",
@@ -308,32 +304,17 @@ export default function AddTransactionScreen() {
     setErrors({});
     setShowFromAccounts(false);
     setShowToAccounts(false);
+    setSelectedFundId(null);
     if (type === "transfer") {
       setSelectedCategory(null);
     }
   };
 
   const handleCategorySelect = (category: Category | null) => {
-    if (
-      category &&
-      category.category_type === "fund" &&
-      formData.type !== "expense"
-    ) {
-      Alert.alert(
-        "Unavailable",
-        "Fund categories can only be used for expenses."
-      );
-      return;
-    }
-
     setSelectedCategory(category);
     setFormData({
       ...formData,
       category_id: category?.id || null,
-      from_account_id:
-        category?.category_type === "fund"
-          ? category.fund_account_id
-          : formData.from_account_id,
     });
   };
 
@@ -523,6 +504,70 @@ export default function AddTransactionScreen() {
               <Text className="text-red-500 text-sm mt-1">
                 {errors.from_account_id}
               </Text>
+            )}
+          </View>
+        )}
+
+        {formData.type === "expense" && formData.from_account_id && (
+          <View className="mb-6">
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-sm font-medium text-neutral-300">
+                Fund (optional)
+              </Text>
+              {selectedFund && (
+                <TouchableOpacity onPress={() => setSelectedFundId(null)}>
+                  <Text className="text-xs text-green-400">Clear</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {funds.filter((f) => f.account_id === formData.from_account_id).length === 0 ? (
+              <View className="bg-neutral-800 rounded-xl px-4 py-3">
+                <Text className="text-neutral-500 text-sm">
+                  No funds linked to this account.
+                </Text>
+              </View>
+            ) : (
+              <View className="bg-neutral-800 rounded-xl">
+                {funds
+                  .filter((f) => f.account_id === formData.from_account_id)
+                  .map((fund, index, arr) => (
+                    <TouchableOpacity
+                      key={fund.id}
+                      onPress={() => {
+                        setSelectedFundId((prev) =>
+                          prev === fund.id ? null : fund.id
+                        );
+                        setFormData((prev) => ({
+                          ...prev,
+                          from_account_id: fund.account_id,
+                        }));
+                      }}
+                      className={`px-4 py-3 flex-row items-center justify-between ${
+                        index !== arr.length - 1 ? "border-b border-neutral-700" : ""
+                      } ${selectedFundId === fund.id ? "bg-green-600/10" : ""}`}
+                    >
+                      <View className="flex-row items-center">
+                        <View
+                          className="w-10 h-10 rounded-xl items-center justify-center mr-3"
+                          style={{ backgroundColor: fund.background_color }}
+                        >
+                          <Text style={{ fontSize: 20 }}>{fund.emoji}</Text>
+                        </View>
+                        <View>
+                          <Text className="text-white text-sm font-semibold">
+                            {fund.name}
+                          </Text>
+                          <Text className="text-neutral-400 text-xs mt-1">
+                            Balance · {formatFundBalance(fund.balance, fund.currency)}
+                          </Text>
+                        </View>
+                      </View>
+                      {selectedFundId === fund.id && (
+                        <MaterialIcons name="check-circle" size={20} color="#22c55e" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+              </View>
             )}
           </View>
         )}

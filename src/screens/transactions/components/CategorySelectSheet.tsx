@@ -131,16 +131,6 @@ export function CategorySelectSheet({
         >
           {item.name}
         </Text>
-        {item.category_type === "fund" && (
-          <Text style={{ color: "#86efac", fontSize: 12, marginTop: 4 }}>
-            Fund · Remaining{" "}
-            {((item.fund_balance || 0) / 100).toLocaleString("en-IN", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{" "}
-            {item.fund_currency || "INR"}
-          </Text>
-        )}
       </View>
       {selectedCategoryId === item.id && (
         <MaterialIcons name="check-circle" size={24} color="#22c55e" />

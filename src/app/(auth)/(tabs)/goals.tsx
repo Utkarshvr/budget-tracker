@@ -1,7 +1,7 @@
-import GoalsScreen from "@/screens/goals/GoalsScreen";
+import FundsScreen from "@/screens/funds/FundsScreen";
 
 export default function goals() {
-  return <GoalsScreen />;
+  return <FundsScreen />;
 }
 
 

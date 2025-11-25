@@ -18,8 +18,5 @@ export interface CategoryFormData {
   name: string;
   emoji: string;
   background_color: string;
-  category_type: CategoryType;
-  fund_account_id: string | null;
-  initial_fund_amount: string;
 }
 
