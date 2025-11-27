@@ -10,6 +10,7 @@ export interface Category {
   fund_balance: number;
   fund_currency: string | null;
   fund_account_id: string | null;
+  fund_target_amount?: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -10,9 +10,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Account, AccountFormData, AccountType } from "@/types/account";
+import { Category } from "@/types/category";
 import { AccountFormSheet } from "./components/AccountFormSheet";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -67,8 +69,10 @@ function formatDate(dateString: string): string {
 }
 
 export default function AccountsScreen() {
+  const router = useRouter();
   const { session } = useSupabaseSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [accountFunds, setAccountFunds] = useState<
     Record<
       string,
@@ -80,6 +84,7 @@ export default function AccountsScreen() {
           name: string;
           emoji: string;
           balance: number;
+          target?: number | null;
         }[];
       }
     >
@@ -100,10 +105,14 @@ export default function AccountsScreen() {
   }, [session]);
 
   useEffect(() => {
-    if (session && accounts.length > 0) {
-      fetchAccountFunds();
+    if (session?.user) {
+      fetchCategories();
     }
-  }, [session, accounts]);
+  }, [session]);
+
+  useEffect(() => {
+    buildAccountFundsFromCategories();
+  }, [accounts, categories]);
 
   const fetchAccounts = async () => {
     if (!session?.user) return;
@@ -125,80 +134,88 @@ export default function AccountsScreen() {
     }
   };
 
-  const fetchAccountFunds = async () => {
+  const fetchCategories = async () => {
     if (!session?.user) return;
-
     try {
       const { data, error } = await supabase
-        .from("account_funds")
-        .select("id,name,emoji,balance,currency,account_id")
-        .eq("user_id", session.user.id);
+        .from("categories")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("updated_at", { ascending: false });
 
       if (error) throw error;
-
-      const allocations: Record<
-        string,
-        {
-          total: number;
-          currency: string;
-          items: {
-            id: string;
-            name: string;
-            emoji: string;
-            balance: number;
-          }[];
-        }
-      > = {};
-
-      (data || []).forEach((fund) => {
-        const accountId = fund.account_id as string | null;
-        if (!accountId) return;
-
-        const balance = fund.balance || 0;
-        if (!allocations[accountId]) {
-          const accountCurrency =
-            accounts.find((a) => a.id === accountId)?.currency || "INR";
-          allocations[accountId] = {
-            total: 0,
-            currency: accountCurrency,
-            items: [],
-          };
-        }
-
-        allocations[accountId].total += balance;
-        allocations[accountId].items.push({
-          id: fund.id,
-          name: fund.name,
-          emoji: fund.emoji,
-          balance,
-        });
-      });
-
-      // Ensure entries exist for accounts even if no funds
-      accounts.forEach((account) => {
-        if (!allocations[account.id]) {
-          allocations[account.id] = {
-            total: 0,
-            currency: account.currency,
-            items: [],
-          };
-        }
-      });
-
-      setAccountFunds(allocations);
-      setExpandedAccounts((prev) => {
-        const next = { ...prev };
-        accounts.forEach((account) => {
-          if (typeof next[account.id] === "undefined") {
-            next[account.id] = true;
-          }
-        });
-        return next;
-      });
+      setCategories(data || []);
     } catch (error: any) {
-      console.error("Error fetching account fund allocations:", error);
-      setAccountFunds({});
+      console.error("Error fetching categories for accounts screen", error);
     }
+  };
+
+  const buildAccountFundsFromCategories = () => {
+    const funded = categories.filter(
+      (category) =>
+        category.category_type === "fund" && category.fund_account_id
+    );
+
+    const allocations: Record<
+      string,
+      {
+        total: number;
+        currency: string;
+        items: {
+          id: string;
+          name: string;
+          emoji: string;
+          balance: number;
+          target?: number | null;
+        }[];
+      }
+    > = {};
+
+    funded.forEach((category) => {
+      const accountId = category.fund_account_id as string;
+      const accountCurrency =
+        accounts.find((account) => account.id === accountId)?.currency ||
+        category.fund_currency ||
+        "INR";
+
+      if (!allocations[accountId]) {
+        allocations[accountId] = {
+          total: 0,
+          currency: accountCurrency,
+          items: [],
+        };
+      }
+
+      allocations[accountId].total += category.fund_balance || 0;
+      allocations[accountId].items.push({
+        id: category.id,
+        name: category.name,
+        emoji: category.emoji,
+        balance: category.fund_balance || 0,
+        target: category.fund_target_amount,
+      });
+    });
+
+    accounts.forEach((account) => {
+      if (!allocations[account.id]) {
+        allocations[account.id] = {
+          total: 0,
+          currency: account.currency,
+          items: [],
+        };
+      }
+    });
+
+    setAccountFunds(allocations);
+    setExpandedAccounts((prev) => {
+      const next = { ...prev };
+      accounts.forEach((account) => {
+        if (typeof next[account.id] === "undefined") {
+          next[account.id] = true;
+        }
+      });
+      return next;
+    });
   };
 
   const renderFundsSection = (account: Account) => {
@@ -233,20 +250,35 @@ export default function AccountsScreen() {
                 Nothing reserved yet. All of this balance is ready to plan.
               </Text>
             ) : (
-              fundInfo.items.map((item) => (
-                <View
-                  key={item.id}
-                  className="flex-row items-center justify-between mb-2"
-                >
-                  <View className="flex-row items-center">
-                    <Text style={{ fontSize: 18, marginRight: 8 }}>{item.emoji}</Text>
-                    <Text className="text-white text-sm">{item.name}</Text>
+              fundInfo.items.map((item) => {
+                const target = item.target || 0;
+                const progress = target > 0 ? Math.min(item.balance / target, 1) : 1;
+                return (
+                  <View key={item.id} className="mb-3">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center">
+                        <Text style={{ fontSize: 18, marginRight: 8 }}>{item.emoji}</Text>
+                        <Text className="text-white text-sm">{item.name}</Text>
+                      </View>
+                      <Text className="text-green-400 text-sm font-semibold">
+                        {formatBalance(item.balance, fundInfo.currency)}
+                      </Text>
+                    </View>
+                    <View className="h-1.5 rounded-full bg-neutral-800 mt-2 overflow-hidden">
+                      <View
+                        className="h-1.5 rounded-full bg-green-500"
+                        style={{ width: `${progress * 100}%` }}
+                      />
+                    </View>
+                    {target > 0 && (
+                      <Text className="text-neutral-500 text-[10px] mt-1">
+                        {formatBalance(item.balance, fundInfo.currency)} /{" "}
+                        {formatBalance(target, fundInfo.currency)}
+                      </Text>
+                    )}
                   </View>
-                  <Text className="text-green-400 text-sm font-semibold">
-                    {formatBalance(item.balance, fundInfo.currency)}
-                  </Text>
-                </View>
-              ))
+                );
+              })
             )}
           </>
         )}
@@ -258,6 +290,15 @@ export default function AccountsScreen() {
             {formatBalance(unallocated, account.currency)}
           </Text>
         </View>
+        <TouchableOpacity
+          className="mt-3 flex-row items-center justify-center rounded-2xl border border-dashed border-neutral-600 py-2"
+          onPress={() => router.push("/(auth)/(tabs)/plan")}
+        >
+          <MaterialIcons name="savings" size={16} color="#22c55e" />
+          <Text className="text-green-400 text-xs font-semibold ml-2">
+            Manage funds
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -274,24 +315,6 @@ export default function AccountsScreen() {
     };
   };
 
-  const renderBalanceSection = (account: Account) => {
-    const fundInfo = accountFunds[account.id];
-    return (
-      <>
-        <View className="mt-2">
-          <Text className="text-neutral-400 text-sm mb-1">Balance</Text>
-          <Text className="text-white text-2xl font-bold">
-            {formatBalance(account.balance, account.currency)}
-          </Text>
-        </View>
-        {fundInfo && (
-          <View className="mt-2">
-            {renderFundsSection(account)}
-          </View>
-        )}
-      </>
-    );
-  };
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchAccounts();
