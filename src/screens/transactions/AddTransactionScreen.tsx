@@ -15,10 +15,9 @@ import { supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Account } from "@/types/account";
 import { TransactionFormData, TransactionType } from "@/types/transaction";
-import { Category } from "@/types/category";
+import { Category, CategoryReservation } from "@/types/category";
 import { PrimaryButton } from "@/screens/auth/components/PrimaryButton";
 import { CategorySelectSheet } from "./components/CategorySelectSheet";
-import { Fund } from "@/types/fund";
 
 const TRANSACTION_TYPES: { value: TransactionType; label: string; icon: string }[] = [
   { value: "expense", label: "Expense", icon: "arrow-downward" },
@@ -26,22 +25,13 @@ const TRANSACTION_TYPES: { value: TransactionType; label: string; icon: string }
   { value: "transfer", label: "Transfer", icon: "swap-horiz" },
 ];
 
-const formatFundBalance = (amount: number, currency: string) => {
-  const mainUnit = amount / 100;
-  return `${currency} ${mainUnit.toLocaleString("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
-
 export default function AddTransactionScreen() {
   const router = useRouter();
   const { session } = useSupabaseSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [funds, setFunds] = useState<Fund[]>([]);
+  const [reservations, setReservations] = useState<CategoryReservation[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [selectedFundId, setSelectedFundId] = useState<string | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showFromAccounts, setShowFromAccounts] = useState(false);
@@ -65,7 +55,7 @@ export default function AddTransactionScreen() {
     if (session) {
       fetchAccounts();
       fetchCategories();
-      fetchFunds();
+      fetchReservations();
     }
   }, [session]);
 
@@ -78,21 +68,6 @@ export default function AddTransactionScreen() {
       setSelectedCategory(null);
     }
   }, [formData.category_id, categories]);
-
-  const selectedFund = useMemo(
-    () => (selectedFundId ? funds.find((fund) => fund.id === selectedFundId) || null : null),
-    [selectedFundId, funds]
-  );
-
-  useEffect(() => {
-    if (
-      selectedFund &&
-      formData.from_account_id &&
-      selectedFund.account_id !== formData.from_account_id
-    ) {
-      setSelectedFundId(null);
-    }
-  }, [selectedFund, formData.from_account_id]);
 
   const fetchAccounts = async () => {
     if (!session?.user) return;
@@ -131,18 +106,17 @@ export default function AddTransactionScreen() {
     }
   };
 
-  const fetchFunds = async () => {
+  const fetchReservations = async () => {
     if (!session?.user) return;
     try {
       const { data, error } = await supabase
-        .from("account_funds")
+        .from("category_reservations")
         .select("*")
-        .eq("user_id", session.user.id)
-        .order("updated_at", { ascending: false });
+        .eq("user_id", session.user.id);
       if (error) throw error;
-      setFunds(data || []);
+      setReservations(data || []);
     } catch (error: any) {
-      console.error("Error fetching funds:", error);
+      console.error("Error fetching reservations:", error);
     }
   };
 
@@ -167,19 +141,21 @@ export default function AddTransactionScreen() {
         newErrors.from_account_id = "From account is required for expenses";
       }
 
-      if (selectedFund) {
-        const amountNum = parseFloat(formData.amount || "0");
-        const amountSmallest = Math.round(amountNum * 100);
+      // Check if category has reservation and validate amount against it
+      if (selectedCategory && formData.from_account_id) {
+        const reservation = reservations.find(
+          (r) =>
+            r.category_id === selectedCategory.id &&
+            r.account_id === formData.from_account_id
+        );
 
-        if (amountSmallest > selectedFund.balance) {
-          newErrors.amount = "Amount exceeds fund balance";
-        }
+        if (reservation) {
+          const amountNum = parseFloat(formData.amount || "0");
+          const amountSmallest = Math.round(amountNum * 100);
 
-        if (
-          formData.from_account_id &&
-          selectedFund.account_id !== formData.from_account_id
-        ) {
-          newErrors.from_account_id = "Select the account linked to this fund";
+          if (amountSmallest > reservation.reserved_amount) {
+            newErrors.amount = "Amount exceeds reserved balance for this category";
+          }
         }
       }
     }
@@ -250,23 +226,35 @@ export default function AddTransactionScreen() {
 
       if (error) throw error;
 
-      if (formData.type === "expense" && selectedFund) {
-        const { error: fundError } = await supabase.rpc(
-          "adjust_account_fund_balance",
-          {
-            p_fund_id: selectedFund.id,
-            p_amount_delta: -amountInSmallestUnit,
-          }
+      // If expense transaction with a reserved category, deduct from reservation
+      if (
+        formData.type === "expense" &&
+        selectedCategory &&
+        formData.from_account_id
+      ) {
+        const reservation = reservations.find(
+          (r) =>
+            r.category_id === selectedCategory.id &&
+            r.account_id === formData.from_account_id
         );
 
-        if (fundError) {
-          await supabase.from("transactions").delete().eq("id", data.id);
-          throw fundError;
-        }
-        fetchFunds();
-      }
+        if (reservation) {
+          const { error: reservationError } = await supabase.rpc(
+            "adjust_category_reservation",
+            {
+              p_category_id: selectedCategory.id,
+              p_account_id: formData.from_account_id,
+              p_amount_delta: -amountInSmallestUnit,
+            }
+          );
 
-      setSelectedFundId(null);
+          if (reservationError) {
+            // Rollback transaction
+            await supabase.from("transactions").delete().eq("id", data.id);
+            throw reservationError;
+          }
+        }
+      }
       Alert.alert("Success", "Transaction added successfully", [
         {
           text: "OK",
@@ -304,7 +292,6 @@ export default function AddTransactionScreen() {
     setErrors({});
     setShowFromAccounts(false);
     setShowToAccounts(false);
-    setSelectedFundId(null);
     if (type === "transfer") {
       setSelectedCategory(null);
     }
@@ -446,14 +433,7 @@ export default function AddTransactionScreen() {
                 </TouchableOpacity>
                 {showFromAccounts && (
                   <View className="bg-neutral-800 rounded-xl mt-2">
-                    {(selectedCategory?.category_type === "fund" &&
-                    selectedCategory.fund_account_id
-                      ? accounts.filter(
-                          (account) =>
-                            account.id === selectedCategory.fund_account_id
-                        )
-                      : accounts
-                    ).map((account) => (
+                    {                    accounts.map((account) => (
                       <TouchableOpacity
                         key={account.id}
                         onPress={() => {
@@ -491,83 +471,12 @@ export default function AddTransactionScreen() {
                     ))}
                   </View>
                 )}
-                {selectedCategory?.category_type === "fund" && (
-                  <Text className="text-xs text-amber-400 mt-2">
-                    {selectedCategory.fund_account_id
-                      ? "Funds are tied to this account."
-                      : "Select which account this fund purchase should use."}
-                  </Text>
-                )}
               </>
             )}
             {errors.from_account_id && (
               <Text className="text-red-500 text-sm mt-1">
                 {errors.from_account_id}
               </Text>
-            )}
-          </View>
-        )}
-
-        {formData.type === "expense" && formData.from_account_id && (
-          <View className="mb-6">
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-sm font-medium text-neutral-300">
-                Fund (optional)
-              </Text>
-              {selectedFund && (
-                <TouchableOpacity onPress={() => setSelectedFundId(null)}>
-                  <Text className="text-xs text-green-400">Clear</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-            {funds.filter((f) => f.account_id === formData.from_account_id).length === 0 ? (
-              <View className="bg-neutral-800 rounded-xl px-4 py-3">
-                <Text className="text-neutral-500 text-sm">
-                  No funds linked to this account.
-                </Text>
-              </View>
-            ) : (
-              <View className="bg-neutral-800 rounded-xl">
-                {funds
-                  .filter((f) => f.account_id === formData.from_account_id)
-                  .map((fund, index, arr) => (
-                    <TouchableOpacity
-                      key={fund.id}
-                      onPress={() => {
-                        setSelectedFundId((prev) =>
-                          prev === fund.id ? null : fund.id
-                        );
-                        setFormData((prev) => ({
-                          ...prev,
-                          from_account_id: fund.account_id,
-                        }));
-                      }}
-                      className={`px-4 py-3 flex-row items-center justify-between ${
-                        index !== arr.length - 1 ? "border-b border-neutral-700" : ""
-                      } ${selectedFundId === fund.id ? "bg-green-600/10" : ""}`}
-                    >
-                      <View className="flex-row items-center">
-                        <View
-                          className="w-10 h-10 rounded-xl items-center justify-center mr-3"
-                          style={{ backgroundColor: fund.background_color }}
-                        >
-                          <Text style={{ fontSize: 20 }}>{fund.emoji}</Text>
-                        </View>
-                        <View>
-                          <Text className="text-white text-sm font-semibold">
-                            {fund.name}
-                          </Text>
-                          <Text className="text-neutral-400 text-xs mt-1">
-                            Balance · {formatFundBalance(fund.balance, fund.currency)}
-                          </Text>
-                        </View>
-                      </View>
-                      {selectedFundId === fund.id && (
-                        <MaterialIcons name="check-circle" size={20} color="#22c55e" />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-              </View>
             )}
           </View>
         )}
@@ -611,27 +520,6 @@ export default function AddTransactionScreen() {
               </View>
               <MaterialIcons name="chevron-right" size={24} color="white" />
             </TouchableOpacity>
-            {selectedCategory?.category_type === "fund" && (
-              <View className="bg-neutral-900/60 rounded-xl px-4 py-3 mt-3">
-                <Text className="text-white text-sm font-semibold">
-                  Fund Category
-                </Text>
-                <Text className="text-green-400 text-base font-bold mt-1">
-                  Remaining ·{" "}
-                  {((selectedCategory.fund_balance || 0) / 100).toLocaleString(
-                    "en-IN",
-                    {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    }
-                  )}{" "}
-                  {selectedCategory.fund_currency || "INR"}
-                </Text>
-                <Text className="text-neutral-400 text-xs mt-1">
-                  Spending more than this amount is not allowed.
-                </Text>
-              </View>
-            )}
           </View>
         )}
 
@@ -743,6 +631,13 @@ export default function AddTransactionScreen() {
       <CategorySelectSheet
         visible={showCategorySheet}
         selectedCategoryId={formData.category_id}
+        selectedAccountId={
+          formData.type === "expense" 
+            ? formData.from_account_id 
+            : formData.type === "income" 
+            ? formData.to_account_id 
+            : null
+        }
         onClose={() => setShowCategorySheet(false)}
         onSelect={handleCategorySelect}
         transactionType={formData.type}

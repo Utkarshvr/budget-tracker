@@ -22,6 +22,7 @@ import { EMOJI_CATEGORIES } from "@/constants/emojis";
 type CategoryFormSheetProps = {
   visible: boolean;
   category: Category | null;
+  defaultCategoryType?: "income" | "expense"; // Default type when creating new category
   onClose: () => void;
   onSubmit: (data: CategoryFormData) => Promise<void>;
   loading?: boolean;
@@ -30,6 +31,7 @@ type CategoryFormSheetProps = {
 export function CategoryFormSheet({
   visible,
   category,
+  defaultCategoryType = "expense",
   onClose,
   onSubmit,
   loading = false,
@@ -41,6 +43,7 @@ export function CategoryFormSheet({
     name: "",
     emoji: "📁",
     background_color: CATEGORY_COLORS[0],
+    category_type: defaultCategoryType,
   });
   const [errors, setErrors] = useState<
     Partial<Record<keyof CategoryFormData, string>>
@@ -66,17 +69,19 @@ export function CategoryFormSheet({
         name: category.name,
         emoji: category.emoji,
         background_color: category.background_color,
+        category_type: category.category_type,
       });
     } else {
       setFormData({
         name: "",
         emoji: "📁",
         background_color: CATEGORY_COLORS[0],
+        category_type: defaultCategoryType,
       });
     }
     setErrors({});
     setShowEmojiMenu(false);
-  }, [category, visible]);
+  }, [category, visible, defaultCategoryType]);
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -174,6 +179,32 @@ export function CategoryFormSheet({
           {errors.name && (
             <Text className="text-red-500 text-sm mb-6">{errors.name}</Text>
           )}
+
+          <Text className="text-neutral-300 text-sm mb-3">Type</Text>
+          <View className="flex-row mb-6">
+            <TouchableOpacity
+              onPress={() => setFormData({ ...formData, category_type: "income" })}
+              className={`flex-1 px-4 py-3 rounded-xl mr-2 ${
+                formData.category_type === "income" ? "bg-green-600" : "bg-neutral-800"
+              }`}
+              disabled={category !== null} // Don't allow changing type when editing
+            >
+              <Text className="text-white text-sm font-medium text-center">
+                Income
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setFormData({ ...formData, category_type: "expense" })}
+              className={`flex-1 px-4 py-3 rounded-xl ${
+                formData.category_type === "expense" ? "bg-green-600" : "bg-neutral-800"
+              }`}
+              disabled={category !== null} // Don't allow changing type when editing
+            >
+              <Text className="text-white text-sm font-medium text-center">
+                Expense
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           <Text className="text-neutral-300 text-sm mb-3">Accent Color</Text>
           <View className="flex-row flex-wrap mb-6">
