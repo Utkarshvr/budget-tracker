@@ -65,7 +65,7 @@ const darkColors = {
     transfer: {
       badgeBg: "#1e3a8a",
       badgeIcon: "#bfdbfe",
-      amountClass: "text-white",
+      amountClass: "text-neutral-300",
     },
     goal: {
       badgeBg: "#4c1d95",

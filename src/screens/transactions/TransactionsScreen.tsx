@@ -1,4 +1,4 @@
-import { useState, useEffect, type ComponentProps } from "react";
+import { useState, useEffect, useMemo, type ComponentProps } from "react";
 import {
   Text,
   View,
@@ -7,7 +7,9 @@ import {
   RefreshControl,
   Alert,
   TouchableHighlight,
+  TouchableOpacity,
   Platform,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -37,19 +39,96 @@ function formatAmount(amount: number, currency: string): string {
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffHours / 24);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
-  if (diffHours < 1) {
-    return "Just now";
-  } else if (diffHours < 24) {
-    return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-  } else if (diffDays < 7) {
-    return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+function formatDateHeader(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+type DateRangeFilter = "month" | "week" | "year";
+
+function getDateRangeForPeriod(
+  period: DateRangeFilter,
+  referenceDate: Date
+): { start: Date; end: Date } {
+  const start = new Date(referenceDate);
+  const end = new Date(referenceDate);
+
+  switch (period) {
+    case "week": {
+      // Get Monday of the week
+      const day = start.getDay();
+      const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+      start.setDate(diff);
+      start.setHours(0, 0, 0, 0);
+      // Get Sunday of the week
+      end.setDate(start.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      break;
+    }
+    case "month": {
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(start.getMonth() + 1);
+      end.setDate(0); // Last day of the month
+      end.setHours(23, 59, 59, 999);
+      break;
+    }
+    case "year": {
+      start.setMonth(0, 1);
+      start.setHours(0, 0, 0, 0);
+      end.setMonth(11, 31);
+      end.setHours(23, 59, 59, 999);
+      break;
+    }
+  }
+
+  return { start, end };
+}
+
+function formatDateRange(
+  start: Date,
+  end: Date,
+  period: DateRangeFilter
+): string {
+  if (period === "month") {
+    return `${start.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })} - ${end.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })}`;
+  } else if (period === "week") {
+    return `${start.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })} - ${end.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })}`;
   } else {
-    return date.toLocaleDateString();
+    // year
+    return `${start.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    })} - ${end.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })}`;
   }
 }
 
@@ -145,6 +224,9 @@ export default function TransactionsScreen() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filterType, setFilterType] = useState<DateRangeFilter>("month");
+  const [currentPeriodDate, setCurrentPeriodDate] = useState(new Date());
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false);
 
   useEffect(() => {
     if (session) {
@@ -184,6 +266,76 @@ export default function TransactionsScreen() {
     fetchTransactions();
   };
 
+  // Calculate current date range
+  const currentDateRange = useMemo(() => {
+    return getDateRangeForPeriod(filterType, currentPeriodDate);
+  }, [filterType, currentPeriodDate]);
+
+  // Filter and group transactions by date
+  const filteredAndGroupedTransactions = useMemo(() => {
+    const { start, end } = currentDateRange;
+
+    // Filter transactions within date range
+    const filtered = transactions.filter((transaction) => {
+      const transactionDate = new Date(transaction.created_at);
+      return transactionDate >= start && transactionDate <= end;
+    });
+
+    // Group by date
+    const grouped: Record<string, Transaction[]> = {};
+    filtered.forEach((transaction) => {
+      const dateKey = new Date(transaction.created_at).toDateString();
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(transaction);
+    });
+
+    // Convert to array and sort by date (newest first)
+    return Object.entries(grouped)
+      .sort(([dateA], [dateB]) => {
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      })
+      .map(([date, transactions]) => ({
+        date,
+        transactions: transactions.sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ),
+      }));
+  }, [transactions, currentDateRange]);
+
+  const handlePreviousPeriod = () => {
+    const newDate = new Date(currentPeriodDate);
+    if (filterType === "week") {
+      newDate.setDate(newDate.getDate() - 7);
+    } else if (filterType === "month") {
+      newDate.setMonth(newDate.getMonth() - 1);
+    } else if (filterType === "year") {
+      newDate.setFullYear(newDate.getFullYear() - 1);
+    }
+    setCurrentPeriodDate(newDate);
+  };
+
+  const handleNextPeriod = () => {
+    const newDate = new Date(currentPeriodDate);
+    if (filterType === "week") {
+      newDate.setDate(newDate.getDate() + 7);
+    } else if (filterType === "month") {
+      newDate.setMonth(newDate.getMonth() + 1);
+    } else if (filterType === "year") {
+      newDate.setFullYear(newDate.getFullYear() + 1);
+    }
+    setCurrentPeriodDate(newDate);
+  };
+
+  const handleFilterTypeChange = (type: DateRangeFilter) => {
+    setFilterType(type);
+    setShowFilterDropdown(false);
+    // Reset to current period when changing filter type
+    setCurrentPeriodDate(new Date());
+  };
+
   if (loading) {
     return (
       <SafeAreaView
@@ -218,114 +370,246 @@ export default function TransactionsScreen() {
           >
             Transactions
           </Text>
-          <Text
-            className="text-sm"
-            style={{ color: colors.muted.foreground }}
-          >
-            {transactions.length} transaction
-            {transactions.length !== 1 ? "s" : ""}
+          <Text className="text-sm" style={{ color: colors.muted.foreground }}>
+            {filteredAndGroupedTransactions.reduce(
+              (sum, group) => sum + group.transactions.length,
+              0
+            )}{" "}
+            transaction
+            {filteredAndGroupedTransactions.reduce(
+              (sum, group) => sum + group.transactions.length,
+              0
+            ) !== 1
+              ? "s"
+              : ""}
           </Text>
         </View>
 
-        {/* Transactions List */}
-        {transactions.length > 0 ? (
-          <View className="mb-6 -mx-4">
-            {transactions.map((transaction, index) => {
-              const typeMeta =
-                TRANSACTION_TYPE_META[transaction.type] || DEFAULT_TYPE_META;
-              const categoryEmoji = transaction.category?.emoji || "💸";
-              const categoryBg =
-                transaction.category?.background_color ||
-                colors.background.subtle;
-              const rippleProps =
-                Platform.OS === "android"
-                  ? ({ android_ripple: { color: colors.primary.soft } } as any)
-                  : {};
-              const accountLabel = getAccountLabel(transaction);
-
-              return (
-                <View key={transaction.id}>
-                    <TouchableHighlight
-                    onPress={() => {}}
-                    underlayColor={colors.background.subtle}
-                    {...rippleProps}
-                    className="px-4"
+        {/* Date Range Filter */}
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center flex-1">
+            <TouchableOpacity
+              onPress={handlePreviousPeriod}
+              className="p-1"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialIcons
+                name="chevron-left"
+                size={24}
+                color={colors.primary.DEFAULT}
+              />
+            </TouchableOpacity>
+            <Text
+              className="text-base font-semibold text-center"
+              style={{ color: colors.foreground, marginHorizontal: 4 }}
+            >
+              {formatDateRange(
+                currentDateRange.start,
+                currentDateRange.end,
+                filterType
+              )}
+            </Text>
+            <TouchableOpacity
+              onPress={handleNextPeriod}
+              className="p-1"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialIcons
+                name="chevron-right"
+                size={24}
+                color={colors.primary.DEFAULT}
+              />
+            </TouchableOpacity>
+          </View>
+          <View className="relative">
+            <TouchableOpacity
+              onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+              className="flex-row items-center px-2 py-1"
+            >
+              <Text
+                className="text-sm capitalize mr-1"
+                style={{ color: colors.primary.DEFAULT }}
+              >
+                {filterType}
+              </Text>
+              <MaterialIcons
+                name={showFilterDropdown ? "expand-less" : "expand-more"}
+                size={20}
+                color={colors.primary.DEFAULT}
+              />
+            </TouchableOpacity>
+            {showFilterDropdown && (
+              <Modal
+                transparent
+                visible={showFilterDropdown}
+                onRequestClose={() => setShowFilterDropdown(false)}
+                animationType="fade"
+              >
+                <TouchableOpacity
+                  activeOpacity={1}
+                  onPress={() => setShowFilterDropdown(false)}
+                  className="flex-1"
+                >
+                  <View
+                    className="absolute right-4 top-20 rounded-lg shadow-lg"
+                    style={{ backgroundColor: colors.background.subtle }}
                   >
-                    <View className="flex-row items-center py-3">
-                      <View className="w-11 h-11 mr-3.5 relative">
-                        <View
-                          className="w-11 h-11 rounded-2xl items-center justify-center"
-                          style={{ backgroundColor: categoryBg }}
+                    {(["week", "month", "year"] as DateRangeFilter[]).map(
+                      (type, index) => (
+                        <TouchableOpacity
+                          key={type}
+                          onPress={() => handleFilterTypeChange(type)}
+                          className="px-4 py-3"
+                          style={{
+                            borderBottomWidth: index < 2 ? 1 : 0,
+                            borderBottomColor: colors.border,
+                            backgroundColor:
+                              filterType === type
+                                ? colors.primary.soft
+                                : "transparent",
+                          }}
                         >
-                          <Text className="text-2xl">{categoryEmoji}</Text>
-                        </View>
-                        <View
-                          className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full items-center justify-center"
-                          style={{ backgroundColor: typeMeta.badgeBg }}
-                        >
-                          <MaterialIcons
-                            name={typeMeta.icon}
-                            size={12}
-                            color={typeMeta.badgeIconColor}
-                          />
-                        </View>
-                      </View>
-
-                      <View className="flex-1">
-                        <View className="flex-row justify-between items-center">
-                          <View className="flex-1 pr-3">
+                          <View className="flex-row items-center justify-between">
                             <Text
-                              className="text-base font-semibold leading-5"
+                              className="text-sm capitalize"
                               style={{ color: colors.foreground }}
                             >
-                              {transaction.note}
+                              {type}
                             </Text>
-                            <Text
-                              className="text-xs mt-1"
-                              style={{ color: colors.muted.foreground }}
-                            >
-                              {transaction.category?.name ||
-                                transaction.type.replace("_", " ")}
-                            </Text>
-                          </View>
-                          <Text
-                            className={`text-lg font-semibold ${typeMeta.amountColor}`}
-                          >
-                            {typeMeta.amountPrefix}
-                            {formatAmount(
-                              transaction.amount,
-                              transaction.currency
+                            {filterType === type && (
+                              <MaterialIcons
+                                name="check"
+                                size={20}
+                                color={colors.primary.DEFAULT}
+                              />
                             )}
-                          </Text>
-                        </View>
-                        <View className="flex-row items-center justify-between mt-1.5">
-                          <Text
-                            className="text-xs"
-                            style={{ color: colors.muted.foreground }}
-                          >
-                            {formatDate(transaction.created_at)}
-                          </Text>
-                          {accountLabel && (
-                            <Text
-                              className="text-xs text-right flex-shrink"
-                              style={{ color: colors.muted.foreground }}
-                            >
-                              {accountLabel}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                  </TouchableHighlight>
-                  {index < transactions.length - 1 && (
-                    <View
-                      className="h-px mx-4"
-                      style={{ backgroundColor: colors.border }}
-                    />
-                  )}
+                          </View>
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </View>
+                </TouchableOpacity>
+              </Modal>
+            )}
+          </View>
+        </View>
+
+        {/* Transactions List */}
+        {filteredAndGroupedTransactions.length > 0 ? (
+          <View className="mb-6 -mx-4">
+            {filteredAndGroupedTransactions.map((group, groupIndex) => (
+              <View key={group.date}>
+                {/* Date Header */}
+                <View className="px-4 py-2">
+                  <Text
+                    className="text-sm font-semibold"
+                    style={{ color: colors.muted.foreground }}
+                  >
+                    {formatDateHeader(group.date)}
+                  </Text>
                 </View>
-              );
-            })}
+                {/* Transactions for this date */}
+                {group.transactions.map((transaction, index) => {
+                  const typeMeta =
+                    TRANSACTION_TYPE_META[transaction.type] ||
+                    DEFAULT_TYPE_META;
+                  const categoryEmoji = transaction.category?.emoji || "💸";
+                  const categoryBg =
+                    transaction.category?.background_color ||
+                    colors.background.subtle;
+                  const rippleProps =
+                    Platform.OS === "android"
+                      ? ({
+                          android_ripple: { color: colors.primary.soft },
+                        } as any)
+                      : {};
+                  const accountLabel = getAccountLabel(transaction);
+
+                  return (
+                    <View key={transaction.id}>
+                      <TouchableHighlight
+                        onPress={() => {}}
+                        underlayColor={colors.background.subtle}
+                        {...rippleProps}
+                        className="px-4"
+                      >
+                        <View className="flex-row items-center py-3">
+                          <View className="w-11 h-11 mr-3.5 relative">
+                            <View
+                              className="w-11 h-11 rounded-2xl items-center justify-center"
+                              style={{ backgroundColor: categoryBg }}
+                            >
+                              <Text className="text-2xl">{categoryEmoji}</Text>
+                            </View>
+                            <View
+                              className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full items-center justify-center"
+                              style={{ backgroundColor: typeMeta.badgeBg }}
+                            >
+                              <MaterialIcons
+                                name={typeMeta.icon}
+                                size={12}
+                                color={typeMeta.badgeIconColor}
+                              />
+                            </View>
+                          </View>
+
+                          <View className="flex-1 justify-center">
+                            <View className="flex-row justify-between items-center">
+                              <View className="flex-1 pr-3">
+                                <Text
+                                  className="text-base font-semibold leading-5"
+                                  style={{ color: colors.foreground }}
+                                >
+                                  {transaction.note}
+                                </Text>
+                                <Text
+                                  className="text-xs mt-1"
+                                  style={{ color: colors.muted.foreground }}
+                                >
+                                  {transaction.category?.name ||
+                                    transaction.type.replace("_", " ")}
+                                </Text>
+                              </View>
+                              <View className="items-end">
+                                <Text
+                                  className={`text-lg font-semibold ${typeMeta.amountColor}`}
+                                >
+                                  {typeMeta.amountPrefix}
+                                  {formatAmount(
+                                    transaction.amount,
+                                    transaction.currency
+                                  )}
+                                </Text>
+                                {accountLabel && (
+                                  <View className="mt-1.5">
+                                    <Text
+                                      className="text-xs text-right"
+                                      style={{ color: colors.muted.foreground }}
+                                    >
+                                      {accountLabel}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+                          </View>
+                        </View>
+                      </TouchableHighlight>
+                      {index < group.transactions.length - 1 && (
+                        <View
+                          className="h-px mx-4"
+                          style={{ backgroundColor: colors.border }}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+                {/* Separator between date groups */}
+                {groupIndex < filteredAndGroupedTransactions.length - 1 && (
+                  <View className="h-2" />
+                )}
+              </View>
+            ))}
           </View>
         ) : (
           /* Empty State */
@@ -353,4 +637,3 @@ export default function TransactionsScreen() {
     </SafeAreaView>
   );
 }
-

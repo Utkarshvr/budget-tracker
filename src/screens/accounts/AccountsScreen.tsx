@@ -82,6 +82,7 @@ export default function AccountsScreen() {
   const [formSheetVisible, setFormSheetVisible] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [expandedReservations, setExpandedReservations] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (session) {
@@ -167,53 +168,80 @@ const getTotalReserved = (accountId: string): number => {
     const accountReservations = getAccountReservations(account.id);
     const totalReserved = getTotalReserved(account.id);
     const unallocated = Math.max(account.balance - totalReserved, 0);
-  const hasReservations = accountReservations.length > 0;
+    const hasReservations = accountReservations.length > 0;
+    const isExpanded = expandedReservations[account.id] || false;
+
+    const toggleReservations = () => {
+      setExpandedReservations((prev) => ({
+        ...prev,
+        [account.id]: !prev[account.id],
+      }));
+    };
 
     return (
       <View className="mt-4">
-        <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
-          Reserved Funds
-        </Text>
         {hasReservations ? (
-        <View className="mt-2 rounded-2xl border border-border">
-          {accountReservations.map((item, index) => {
-            const updatedLabel = item.updated_at
-              ? `Updated ${formatDate(item.updated_at)}`
-              : null;
+          <>
+            <TouchableOpacity
+              onPress={toggleReservations}
+              className="flex-row items-center justify-between"
+            >
+              <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
+                Reserved Funds ({accountReservations.length})
+              </Text>
+              <MaterialIcons
+                name={isExpanded ? "expand-less" : "expand-more"}
+                size={20}
+                color={theme.colors.muted.foreground}
+              />
+            </TouchableOpacity>
+            {isExpanded && (
+              <View className="mt-2 rounded-2xl border border-border">
+                {accountReservations.map((item, index) => {
+                  const updatedLabel = item.updated_at
+                    ? `Updated ${formatDate(item.updated_at)}`
+                    : null;
 
-            return (
-              <View key={item.id}>
-                <View className="flex-row items-center justify-between px-3 py-2">
-                  <View className="flex-row items-center flex-1 pr-2">
-                    <View className="w-9 h-9 rounded-full bg-muted items-center justify-center">
-                      <Text style={{ fontSize: 18 }}>{item.categoryEmoji}</Text>
-                    </View>
-                    <View className="ml-3 flex-1">
-                      <Text className="text-foreground text-sm font-semibold">
-                        {item.categoryName}
-                      </Text>
-                      {updatedLabel && (
-                        <Text className="text-muted-foreground text-xs mt-0.5">
-                          {updatedLabel}
+                  return (
+                    <View key={item.id}>
+                      <View className="flex-row items-center justify-between px-3 py-2">
+                        <View className="flex-row items-center flex-1 pr-2">
+                          <View className="w-9 h-9 rounded-full bg-muted items-center justify-center">
+                            <Text style={{ fontSize: 18 }}>{item.categoryEmoji}</Text>
+                          </View>
+                          <View className="ml-3 flex-1">
+                            <Text className="text-foreground text-sm font-semibold">
+                              {item.categoryName}
+                            </Text>
+                            {updatedLabel && (
+                              <Text className="text-muted-foreground text-xs mt-0.5">
+                                {updatedLabel}
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+                        <Text className="text-primary text-sm font-semibold">
+                          {formatBalance(item.reserved_amount, item.currency)}
                         </Text>
+                      </View>
+                      {index < accountReservations.length - 1 && (
+                        <View className="h-px bg-border" />
                       )}
                     </View>
-                  </View>
-                  <Text className="text-primary text-sm font-semibold">
-                    {formatBalance(item.reserved_amount, item.currency)}
-                  </Text>
-                </View>
-                {index < accountReservations.length - 1 && (
-                  <View className="h-px bg-border" />
-                )}
+                  );
+                })}
               </View>
-            );
-          })}
-        </View>
+            )}
+          </>
         ) : (
-          <Text className="text-muted-foreground text-sm mt-2">
-            No funds yet. Create one to reserve money for goals.
-          </Text>
+          <>
+            <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
+              Reserved Funds
+            </Text>
+            <Text className="text-muted-foreground text-sm mt-2">
+              No funds yet. Create one to reserve money for goals.
+            </Text>
+          </>
         )}
         <View className="mt-4">
           <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
@@ -374,7 +402,7 @@ const getTotalReserved = (accountId: string): number => {
           <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
             Total Balance
           </Text>
-          <Text className="text-foreground text-2xl font-bold mt-1">
+          <Text className="text-primary text-2xl font-bold mt-1">
             {formatBalance(account.balance, account.currency)}
           </Text>
         </View>
