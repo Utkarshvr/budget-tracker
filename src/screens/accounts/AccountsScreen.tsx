@@ -7,10 +7,12 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Account, AccountFormData, AccountType } from "@/types/account";
@@ -79,9 +81,6 @@ export default function AccountsScreen() {
   const [formSheetVisible, setFormSheetVisible] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>(
-    {}
-  );
 
   useEffect(() => {
     if (session) {
@@ -157,76 +156,79 @@ export default function AccountsScreen() {
       });
   };
 
-  const getTotalReserved = (accountId: string): number => {
-    return reservations
-      .filter((r) => r.account_id === accountId)
-      .reduce((sum, r) => sum + r.reserved_amount, 0);
-  };
+const getTotalReserved = (accountId: string): number => {
+  return reservations
+    .filter((r) => r.account_id === accountId)
+    .reduce((sum, r) => sum + r.reserved_amount, 0);
+};
 
   const renderReservationsSection = (account: Account) => {
     const accountReservations = getAccountReservations(account.id);
     const totalReserved = getTotalReserved(account.id);
     const unallocated = Math.max(account.balance - totalReserved, 0);
-    const isExpanded = expandedAccounts[account.id] ?? true;
+  const hasReservations = accountReservations.length > 0;
 
     return (
-      <View className="mt-3 bg-neutral-900/60 rounded-2xl p-4">
-        <TouchableOpacity
-          className="flex-row items-center justify-between mb-2"
-          onPress={() =>
-            setExpandedAccounts((prev) => ({
-              ...prev,
-              [account.id]: !isExpanded,
-            }))
-          }
-        >
-          <Text className="text-white text-sm font-semibold">Reserved Money</Text>
-          <MaterialIcons
-            name={isExpanded ? "expand-less" : "expand-more"}
-            size={22}
-            color="#9ca3af"
-          />
-        </TouchableOpacity>
-        {isExpanded && (
-          <>
-            {accountReservations.length === 0 ? (
-              <Text className="text-neutral-400 text-xs">
-                No money reserved yet. All balance is unreserved.
-              </Text>
-            ) : (
-              accountReservations.map((item) => (
-                <View key={item.id} className="mb-3">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center">
-                      <Text style={{ fontSize: 18, marginRight: 8 }}>
-                        {item.categoryEmoji}
-                      </Text>
-                      <Text className="text-white text-sm">{item.categoryName}</Text>
+    <View className="mt-4">
+      <Text className="text-neutral-500 text-xs uppercase tracking-[0.2em]">
+        Reserved Funds
+      </Text>
+      {hasReservations ? (
+        <View className="mt-2 rounded-2xl border border-neutral-800/60">
+          {accountReservations.map((item, index) => {
+            const updatedLabel = item.updated_at
+              ? `Updated ${formatDate(item.updated_at)}`
+              : null;
+
+            return (
+              <View key={item.id}>
+                <View className="flex-row items-center justify-between px-3 py-2">
+                  <View className="flex-row items-center flex-1 pr-2">
+                    <View className="w-9 h-9 rounded-full bg-neutral-800 items-center justify-center">
+                      <Text style={{ fontSize: 18 }}>{item.categoryEmoji}</Text>
                     </View>
-                    <Text className="text-green-400 text-sm font-semibold">
-                      {formatBalance(item.reserved_amount, item.currency)}
-                    </Text>
+                    <View className="ml-3 flex-1">
+                      <Text className="text-white text-sm font-semibold">
+                        {item.categoryName}
+                      </Text>
+                      {updatedLabel && (
+                        <Text className="text-neutral-500 text-xs mt-0.5">
+                          {updatedLabel}
+                        </Text>
+                      )}
+                    </View>
                   </View>
+                  <Text className="text-green-400 text-sm font-semibold">
+                    {formatBalance(item.reserved_amount, item.currency)}
+                  </Text>
                 </View>
-              ))
-            )}
-          </>
-        )}
-        <View className="mt-3 pt-3 border-t border-neutral-800">
-          <Text className="text-neutral-400 text-xs uppercase tracking-wide">
-            Unreserved
-          </Text>
-          <Text className="text-white text-lg font-bold mt-1">
-            {formatBalance(unallocated, account.currency)}
-          </Text>
+                {index < accountReservations.length - 1 && (
+                  <View className="h-px bg-neutral-800" />
+                )}
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <Text className="text-neutral-500 text-sm mt-2">
+          No funds yet. Create one to reserve money for goals.
+        </Text>
+      )}
+      <View className="mt-4">
+        <Text className="text-neutral-500 text-xs uppercase tracking-[0.2em]">
+          Unreserved
+        </Text>
+        <Text className="text-white text-lg font-bold mt-1">
+          {formatBalance(unallocated, account.currency)}
+        </Text>
         </View>
         <TouchableOpacity
-          className="mt-3 flex-row items-center justify-center rounded-2xl border border-dashed border-neutral-600 py-2"
+        className="mt-4 flex-row items-center justify-center rounded-2xl bg-green-500/15 border border-green-500/30 py-2"
           onPress={() => router.push("/(auth)/(tabs)/categories")}
         >
-          <MaterialIcons name="category" size={16} color="#22c55e" />
-          <Text className="text-green-400 text-xs font-semibold ml-2">
-            Manage in Categories
+        <MaterialIcons name="savings" size={16} color="#22c55e" />
+        <Text className="text-green-400 text-sm font-semibold ml-2">
+          {hasReservations ? "Manage Funds" : "+ Create Fund"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -322,6 +324,65 @@ export default function AccountsScreen() {
     }
   };
 
+  const renderAccountCard = (account: Account, showTypeMeta: boolean) => (
+    <LinearGradient
+      key={account.id}
+      colors={["#1f1f23", "#131316"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.cardGradient}
+    >
+      <TouchableOpacity
+        className="rounded-3xl"
+        onPress={() => handleEditAccount(account)}
+        onLongPress={() => handleDeleteAccount(account)}
+        activeOpacity={0.9}
+        style={styles.cardInner}
+      >
+        <View className="flex-row items-start justify-between">
+          <View className="flex-row items-center flex-1 pr-3">
+            <View
+              className={`${ACCOUNT_TYPE_COLORS[account.type]} w-11 h-11 rounded-2xl items-center justify-center mr-3`}
+            >
+              <MaterialIcons
+                name={ACCOUNT_TYPE_ICONS[account.type] as any}
+                size={22}
+                color="white"
+              />
+            </View>
+            <View className="flex-1">
+              <Text className="text-white text-base font-semibold">
+                {account.name}
+              </Text>
+              <Text className="text-neutral-400 text-xs mt-1">
+                {showTypeMeta
+                  ? `${account.type.replace("_", " ")} • ${account.currency}`
+                  : account.currency}
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            onPress={() => handleDeleteAccount(account)}
+            className="w-8 h-8 rounded-full bg-white/5 items-center justify-center"
+          >
+            <MaterialIcons name="more-vert" size={18} color="#9ca3af" />
+          </TouchableOpacity>
+        </View>
+
+        <View className="mt-4">
+          <Text className="text-neutral-500 text-xs uppercase tracking-[0.2em]">
+            Total Balance
+          </Text>
+          <Text className="text-white text-2xl font-bold mt-1">
+            {formatBalance(account.balance, account.currency)}
+          </Text>
+        </View>
+
+        {renderReservationsSection(account)}
+      </TouchableOpacity>
+    </LinearGradient>
+  );
+
   const groupedAccounts = accounts.reduce(
     (acc, account) => {
       if (account.type === "cash") {
@@ -366,50 +427,9 @@ export default function AccountsScreen() {
         {groupedAccounts.bank.length > 0 && (
           <View className="mb-6">
             <Text className="text-lg font-bold text-white mb-3">Bank Accounts</Text>
-            {groupedAccounts.bank.map((account) => (
-              <TouchableOpacity
-                key={account.id}
-                className="bg-neutral-800 rounded-2xl p-4 mb-3"
-                onPress={() => handleEditAccount(account)}
-                onLongPress={() => handleDeleteAccount(account)}
-              >
-                <View className="flex-row items-start mb-4">
-                  <View
-                    className={`${ACCOUNT_TYPE_COLORS[account.type]} w-12 h-12 rounded-lg items-center justify-center mr-3`}
-                  >
-                    <MaterialIcons
-                      name={ACCOUNT_TYPE_ICONS[account.type] as any}
-                      size={24}
-                      color="white"
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-white text-base font-semibold">
-                      {account.name}
-                    </Text>
-                    <Text className="text-neutral-400 text-sm mt-1 capitalize">
-                      {account.type.replace("_", " ")} • {account.currency}
-                    </Text>
-                    <Text className="text-neutral-500 text-xs mt-1">
-                      Updated {formatDate(account.updated_at)}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteAccount(account)}
-                    className="p-2"
-                  >
-                    <MaterialIcons name="more-vert" size={20} color="#9ca3af" />
-                  </TouchableOpacity>
-                </View>
-                <View className="mt-2">
-                  <Text className="text-neutral-400 text-sm mb-1">Total Balance</Text>
-                  <Text className="text-white text-2xl font-bold">
-                    {formatBalance(account.balance, account.currency)}
-                  </Text>
-                </View>
-                {renderReservationsSection(account)}
-              </TouchableOpacity>
-            ))}
+            {groupedAccounts.bank.map((account) =>
+              renderAccountCard(account, true)
+            )}
           </View>
         )}
 
@@ -417,50 +437,9 @@ export default function AccountsScreen() {
         {groupedAccounts.cash.length > 0 && (
           <View className="mb-6">
             <Text className="text-lg font-bold text-white mb-3">Cash</Text>
-            {groupedAccounts.cash.map((account) => (
-              <TouchableOpacity
-                key={account.id}
-                className="bg-neutral-800 rounded-2xl p-4 mb-3"
-                onPress={() => handleEditAccount(account)}
-                onLongPress={() => handleDeleteAccount(account)}
-              >
-                <View className="flex-row items-start mb-4">
-                  <View
-                    className={`${ACCOUNT_TYPE_COLORS[account.type]} w-12 h-12 rounded-lg items-center justify-center mr-3`}
-                  >
-                    <MaterialIcons
-                      name={ACCOUNT_TYPE_ICONS[account.type] as any}
-                      size={24}
-                      color="white"
-                    />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-white text-base font-semibold">
-                      {account.name}
-                    </Text>
-                    <Text className="text-neutral-400 text-sm mt-1">
-                      {account.currency}
-                    </Text>
-                    <Text className="text-neutral-500 text-xs mt-1">
-                      Updated {formatDate(account.updated_at)}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteAccount(account)}
-                    className="p-2"
-                  >
-                    <MaterialIcons name="more-vert" size={20} color="#9ca3af" />
-                  </TouchableOpacity>
-                </View>
-                <View className="mt-2">
-                  <Text className="text-neutral-400 text-sm mb-1">Total Balance</Text>
-                  <Text className="text-white text-2xl font-bold">
-                    {formatBalance(account.balance, account.currency)}
-                  </Text>
-                </View>
-                {renderReservationsSection(account)}
-              </TouchableOpacity>
-            ))}
+            {groupedAccounts.cash.map((account) =>
+              renderAccountCard(account, false)
+            )}
           </View>
         )}
 
@@ -507,3 +486,20 @@ export default function AccountsScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  cardGradient: {
+    borderRadius: 28,
+    marginBottom: 16,
+  },
+  cardInner: {
+    borderRadius: 28,
+    padding: 16,
+    backgroundColor: "rgba(18, 18, 20, 0.92)",
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 16,
+    elevation: 6,
+  },
+});

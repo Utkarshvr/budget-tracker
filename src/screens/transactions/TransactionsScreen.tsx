@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ComponentProps } from "react";
 import {
   Text,
   View,
@@ -6,12 +6,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  TouchableHighlight,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
-import { Transaction } from "@/types/transaction";
+import { Transaction, TransactionType } from "@/types/transaction";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   INR: "₹",
@@ -50,6 +52,84 @@ function formatDate(dateString: string): string {
   }
 }
 
+function getAccountLabel(transaction: Transaction): string | null {
+  const fromName = transaction.from_account?.name;
+  const toName = transaction.to_account?.name;
+
+  switch (transaction.type) {
+    case "expense":
+      return fromName ? `From: ${fromName}` : null;
+    case "income":
+      return toName ? `To: ${toName}` : null;
+    case "transfer":
+      if (fromName && toName) {
+        return `${fromName} → ${toName}`;
+      }
+      return fromName ? `From: ${fromName}` : toName ? `To: ${toName}` : null;
+    case "goal":
+      return fromName ? `${fromName} → Goal` : null;
+    case "goal_withdraw":
+      return toName ? `Goal → ${toName}` : null;
+    default:
+      return null;
+  }
+}
+
+const DEFAULT_TYPE_META = {
+  icon: "receipt-long",
+  badgeBg: "#27272a",
+  badgeIconColor: "#e5e7eb",
+  amountColor: "text-white",
+  amountPrefix: "",
+} as const;
+
+const TRANSACTION_TYPE_META: Record<
+  TransactionType,
+  {
+    icon: ComponentProps<typeof MaterialIcons>["name"];
+    badgeBg: string;
+    badgeIconColor: string;
+    amountColor: string;
+    amountPrefix: string;
+  }
+> = {
+  expense: {
+    icon: "arrow-downward",
+    badgeBg: "#7f1d1d",
+    badgeIconColor: "#fca5a5",
+    amountColor: "text-red-400",
+    amountPrefix: "-",
+  },
+  income: {
+    icon: "arrow-upward",
+    badgeBg: "#064e3b",
+    badgeIconColor: "#86efac",
+    amountColor: "text-green-400",
+    amountPrefix: "+",
+  },
+  transfer: {
+    icon: "swap-horiz",
+    badgeBg: "#1e3a8a",
+    badgeIconColor: "#bfdbfe",
+    amountColor: "text-white",
+    amountPrefix: "",
+  },
+  goal: {
+    icon: "savings",
+    badgeBg: "#4c1d95",
+    badgeIconColor: "#ddd6fe",
+    amountColor: "text-purple-400",
+    amountPrefix: "-",
+  },
+  goal_withdraw: {
+    icon: "undo",
+    badgeBg: "#14532d",
+    badgeIconColor: "#86efac",
+    amountColor: "text-green-400",
+    amountPrefix: "+",
+  },
+};
+
 export default function TransactionsScreen() {
   const { session } = useSupabaseSession();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -72,7 +152,8 @@ export default function TransactionsScreen() {
           `
           *,
           from_account:accounts!from_account_id(id, name, type, currency),
-          to_account:accounts!to_account_id(id, name, type, currency)
+          to_account:accounts!to_account_id(id, name, type, currency),
+          category:categories(id, name, emoji, background_color, category_type)
         `
         )
         .eq("user_id", session.user.id)
@@ -124,163 +205,84 @@ export default function TransactionsScreen() {
 
         {/* Transactions List */}
         {transactions.length > 0 ? (
-          <View className="mb-6">
-            {transactions.map((transaction) => {
-              const isExpense = transaction.type === "expense";
-              const isIncome = transaction.type === "income";
-              const isTransfer = transaction.type === "transfer";
-              const isGoal = transaction.type === "goal";
-              const isGoalWithdraw = transaction.type === "goal_withdraw";
+          <View className="mb-6 -mx-4">
+            {transactions.map((transaction, index) => {
+              const typeMeta =
+                TRANSACTION_TYPE_META[transaction.type] || DEFAULT_TYPE_META;
+              const categoryEmoji = transaction.category?.emoji || "💸";
+              const categoryBg =
+                transaction.category?.background_color || "#27272a";
+              const rippleProps =
+                Platform.OS === "android"
+                  ? ({ android_ripple: { color: "#22c55e33" } } as any)
+                  : {};
+              const accountLabel = getAccountLabel(transaction);
 
               return (
-                <View
-                  key={transaction.id}
-                  className="bg-neutral-800 rounded-2xl p-4 mb-3"
-                >
-                  <View className="flex-row items-start mb-2">
-                    <View
-                      className={`w-10 h-10 rounded-lg items-center justify-center mr-3 ${
-                        isExpense
-                          ? "bg-red-500"
-                          : isIncome
-                          ? "bg-green-500"
-                          : isTransfer
-                          ? "bg-blue-500"
-                          : isGoalWithdraw
-                          ? "bg-green-500"
-                          : "bg-purple-500"
-                      }`}
-                    >
-                      <MaterialIcons
-                        name={
-                          isExpense
-                            ? "arrow-downward"
-                            : isIncome
-                            ? "arrow-upward"
-                            : isTransfer
-                            ? "swap-horiz"
-                            : isGoalWithdraw
-                            ? "undo"
-                            : "savings"
-                        }
-                        size={20}
-                        color="white"
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-white text-base font-semibold">
-                        {transaction.note}
-                      </Text>
-                      <Text className="text-neutral-400 text-sm mt-1 capitalize">
-                        {transaction.type.replace("_", " ")}
-                      </Text>
-                      <Text className="text-neutral-500 text-xs mt-1">
-                        {formatDate(transaction.created_at)}
-                      </Text>
-                    </View>
-                    <Text
-                      className={`text-lg font-bold ${
-                        isExpense
-                          ? "text-red-400"
-                          : isIncome
-                          ? "text-green-400"
-                          : isGoalWithdraw
-                          ? "text-green-400"
-                          : isGoal
-                          ? "text-purple-400"
-                          : ""
-                      }`}
-                    >
-                      {isExpense ? "-" : isIncome || isGoalWithdraw ? "+" : isGoal ? "-" : ""}
-                      {formatAmount(transaction.amount, transaction.currency)}
-                    </Text>
-                  </View>
+                <View key={transaction.id}>
+                  <TouchableHighlight
+                    onPress={() => {}}
+                    underlayColor="#27272a"
+                    {...rippleProps}
+                    className="px-4"
+                  >
+                    <View className="flex-row items-center py-3">
+                      <View className="w-11 h-11 mr-3.5 relative">
+                        <View
+                          className="w-11 h-11 rounded-2xl items-center justify-center"
+                          style={{ backgroundColor: categoryBg }}
+                        >
+                          <Text className="text-2xl">{categoryEmoji}</Text>
+                        </View>
+                        <View
+                          className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full items-center justify-center"
+                          style={{ backgroundColor: typeMeta.badgeBg }}
+                        >
+                          <MaterialIcons
+                            name={typeMeta.icon}
+                            size={12}
+                            color={typeMeta.badgeIconColor}
+                          />
+                        </View>
+                      </View>
 
-                  {/* Account Information */}
-                  <View className="mt-2 pt-2 border-t border-neutral-700">
-                    {isExpense && transaction.from_account && (
-                      <View className="flex-row items-center">
-                        <MaterialIcons
-                          name="account-balance"
-                          size={16}
-                          color="#9ca3af"
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text className="text-neutral-400 text-xs">
-                          From: {transaction.from_account.name}
-                        </Text>
-                      </View>
-                    )}
-                    {isIncome && transaction.to_account && (
-                      <View className="flex-row items-center">
-                        <MaterialIcons
-                          name="account-balance"
-                          size={16}
-                          color="#9ca3af"
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text className="text-neutral-400 text-xs">
-                          To: {transaction.to_account.name}
-                        </Text>
-                      </View>
-                    )}
-                    {isTransfer && (
-                      <View>
-                        {transaction.from_account && (
-                          <View className="flex-row items-center mb-1">
-                            <MaterialIcons
-                              name="account-balance"
-                              size={16}
-                              color="#9ca3af"
-                              style={{ marginRight: 6 }}
-                            />
-                            <Text className="text-neutral-400 text-xs">
-                              From: {transaction.from_account.name}
+                      <View className="flex-1">
+                        <View className="flex-row justify-between items-center">
+                          <View className="flex-1 pr-3">
+                            <Text className="text-white text-base font-semibold leading-5">
+                              {transaction.note}
+                            </Text>
+                            <Text className="text-neutral-400 text-xs mt-1">
+                              {transaction.category?.name ||
+                                transaction.type.replace("_", " ")}
                             </Text>
                           </View>
-                        )}
-                        {transaction.to_account && (
-                          <View className="flex-row items-center">
-                            <MaterialIcons
-                              name="account-balance"
-                              size={16}
-                              color="#9ca3af"
-                              style={{ marginRight: 6 }}
-                            />
-                            <Text className="text-neutral-400 text-xs">
-                              To: {transaction.to_account.name}
+                          <Text
+                            className={`text-lg font-semibold ${typeMeta.amountColor}`}
+                          >
+                            {typeMeta.amountPrefix}
+                            {formatAmount(
+                              transaction.amount,
+                              transaction.currency
+                            )}
+                          </Text>
+                        </View>
+                        <View className="flex-row items-center justify-between mt-1.5">
+                          <Text className="text-neutral-500 text-xs">
+                            {formatDate(transaction.created_at)}
+                          </Text>
+                          {accountLabel && (
+                            <Text className="text-neutral-400 text-xs text-right flex-shrink">
+                              {accountLabel}
                             </Text>
-                          </View>
-                        )}
+                          )}
+                        </View>
                       </View>
-                    )}
-                    {isGoal && transaction.from_account && (
-                      <View className="flex-row items-center">
-                        <MaterialIcons
-                          name="savings"
-                          size={16}
-                          color="#9ca3af"
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text className="text-neutral-400 text-xs">
-                          From: {transaction.from_account.name} → Goal
-                        </Text>
-                      </View>
-                    )}
-                    {isGoalWithdraw && transaction.to_account && (
-                      <View className="flex-row items-center">
-                        <MaterialIcons
-                          name="undo"
-                          size={16}
-                          color="#9ca3af"
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text className="text-neutral-400 text-xs">
-                          From: Goal → {transaction.to_account.name}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
+                    </View>
+                  </TouchableHighlight>
+                  {index < transactions.length - 1 && (
+                    <View className="h-px bg-neutral-800 mx-4" />
+                  )}
                 </View>
               );
             })}
