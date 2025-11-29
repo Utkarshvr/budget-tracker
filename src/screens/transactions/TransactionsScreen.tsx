@@ -14,6 +14,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Transaction, TransactionType } from "@/types/transaction";
+import { useThemeColors, type ThemeColors } from "@/constants/theme";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   INR: "₹",
@@ -75,62 +76,71 @@ function getAccountLabel(transaction: Transaction): string | null {
   }
 }
 
-const DEFAULT_TYPE_META = {
-  icon: "receipt-long",
-  badgeBg: "#27272a",
-  badgeIconColor: "#e5e7eb",
-  amountColor: "text-white",
-  amountPrefix: "",
-} as const;
-
-const TRANSACTION_TYPE_META: Record<
-  TransactionType,
-  {
-    icon: ComponentProps<typeof MaterialIcons>["name"];
-    badgeBg: string;
-    badgeIconColor: string;
-    amountColor: string;
-    amountPrefix: string;
-  }
-> = {
-  expense: {
-    icon: "arrow-downward",
-    badgeBg: "#7f1d1d",
-    badgeIconColor: "#fca5a5",
-    amountColor: "text-red-400",
-    amountPrefix: "-",
-  },
-  income: {
-    icon: "arrow-upward",
-    badgeBg: "#064e3b",
-    badgeIconColor: "#86efac",
-    amountColor: "text-green-400",
-    amountPrefix: "+",
-  },
-  transfer: {
-    icon: "swap-horiz",
-    badgeBg: "#1e3a8a",
-    badgeIconColor: "#bfdbfe",
-    amountColor: "text-white",
-    amountPrefix: "",
-  },
-  goal: {
-    icon: "savings",
-    badgeBg: "#4c1d95",
-    badgeIconColor: "#ddd6fe",
-    amountColor: "text-purple-400",
-    amountPrefix: "-",
-  },
-  goal_withdraw: {
-    icon: "undo",
-    badgeBg: "#14532d",
-    badgeIconColor: "#86efac",
-    amountColor: "text-green-400",
-    amountPrefix: "+",
-  },
+type TransactionTypeMeta = {
+  icon: ComponentProps<typeof MaterialIcons>["name"];
+  badgeBg: string;
+  badgeIconColor: string;
+  amountColor: string; // Tailwind class name
+  amountPrefix: string;
 };
 
+function buildTypeMeta(colors: ThemeColors): {
+  DEFAULT_TYPE_META: TransactionTypeMeta;
+  TRANSACTION_TYPE_META: Record<TransactionType, TransactionTypeMeta>;
+} {
+  const DEFAULT_TYPE_META: TransactionTypeMeta = {
+    icon: "receipt-long",
+    badgeBg: colors.background.subtle,
+    badgeIconColor: colors.foreground,
+    amountColor: "text-foreground",
+    amountPrefix: "",
+  };
+
+  const TRANSACTION_TYPE_META: Record<TransactionType, TransactionTypeMeta> = {
+    expense: {
+      icon: "arrow-downward",
+      badgeBg: colors.transaction.expense.badgeBg,
+      badgeIconColor: colors.transaction.expense.badgeIcon,
+      amountColor: colors.transaction.expense.amountClass,
+      amountPrefix: "-",
+    },
+    income: {
+      icon: "arrow-upward",
+      badgeBg: colors.transaction.income.badgeBg,
+      badgeIconColor: colors.transaction.income.badgeIcon,
+      amountColor: colors.transaction.income.amountClass,
+      amountPrefix: "+",
+    },
+    transfer: {
+      icon: "swap-horiz",
+      badgeBg: colors.transaction.transfer.badgeBg,
+      badgeIconColor: colors.transaction.transfer.badgeIcon,
+      amountColor: colors.transaction.transfer.amountClass,
+      amountPrefix: "",
+    },
+    goal: {
+      icon: "savings",
+      badgeBg: colors.transaction.goal.badgeBg,
+      badgeIconColor: colors.transaction.goal.badgeIcon,
+      amountColor: colors.transaction.goal.amountClass,
+      amountPrefix: "-",
+    },
+    goal_withdraw: {
+      icon: "undo",
+      badgeBg: colors.transaction.goalWithdraw.badgeBg,
+      badgeIconColor: colors.transaction.goalWithdraw.badgeIcon,
+      amountColor: colors.transaction.goalWithdraw.amountClass,
+      amountPrefix: "+",
+    },
+  };
+
+  return { DEFAULT_TYPE_META, TRANSACTION_TYPE_META };
+}
+
 export default function TransactionsScreen() {
+  const colors = useThemeColors();
+  const { DEFAULT_TYPE_META, TRANSACTION_TYPE_META } = buildTypeMeta(colors);
+
   const { session } = useSupabaseSession();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -176,28 +186,42 @@ export default function TransactionsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-neutral-900 items-center justify-center">
-        <ActivityIndicator size="large" color="#22c55e" />
+      <SafeAreaView
+        className="flex-1 items-center justify-center"
+        style={{ backgroundColor: colors.background.DEFAULT }}
+      >
+        <ActivityIndicator size="large" color={colors.primary.DEFAULT} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-neutral-900">
+    <SafeAreaView
+      className="flex-1"
+      style={{ backgroundColor: colors.background.DEFAULT }}
+    >
       <ScrollView
         className="flex-1 px-4 pt-4"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#22c55e"
+            tintColor={colors.primary.DEFAULT}
           />
         }
       >
         {/* Header */}
         <View className="flex-row items-center justify-between mb-6">
-          <Text className="text-3xl font-bold text-white">Transactions</Text>
-          <Text className="text-neutral-400 text-sm">
+          <Text
+            className="text-3xl font-bold"
+            style={{ color: colors.foreground }}
+          >
+            Transactions
+          </Text>
+          <Text
+            className="text-sm"
+            style={{ color: colors.muted.foreground }}
+          >
             {transactions.length} transaction
             {transactions.length !== 1 ? "s" : ""}
           </Text>
@@ -211,18 +235,19 @@ export default function TransactionsScreen() {
                 TRANSACTION_TYPE_META[transaction.type] || DEFAULT_TYPE_META;
               const categoryEmoji = transaction.category?.emoji || "💸";
               const categoryBg =
-                transaction.category?.background_color || "#27272a";
+                transaction.category?.background_color ||
+                colors.background.subtle;
               const rippleProps =
                 Platform.OS === "android"
-                  ? ({ android_ripple: { color: "#22c55e33" } } as any)
+                  ? ({ android_ripple: { color: colors.primary.soft } } as any)
                   : {};
               const accountLabel = getAccountLabel(transaction);
 
               return (
                 <View key={transaction.id}>
-                  <TouchableHighlight
+                    <TouchableHighlight
                     onPress={() => {}}
-                    underlayColor="#27272a"
+                    underlayColor={colors.background.subtle}
                     {...rippleProps}
                     className="px-4"
                   >
@@ -249,10 +274,16 @@ export default function TransactionsScreen() {
                       <View className="flex-1">
                         <View className="flex-row justify-between items-center">
                           <View className="flex-1 pr-3">
-                            <Text className="text-white text-base font-semibold leading-5">
+                            <Text
+                              className="text-base font-semibold leading-5"
+                              style={{ color: colors.foreground }}
+                            >
                               {transaction.note}
                             </Text>
-                            <Text className="text-neutral-400 text-xs mt-1">
+                            <Text
+                              className="text-xs mt-1"
+                              style={{ color: colors.muted.foreground }}
+                            >
                               {transaction.category?.name ||
                                 transaction.type.replace("_", " ")}
                             </Text>
@@ -268,11 +299,17 @@ export default function TransactionsScreen() {
                           </Text>
                         </View>
                         <View className="flex-row items-center justify-between mt-1.5">
-                          <Text className="text-neutral-500 text-xs">
+                          <Text
+                            className="text-xs"
+                            style={{ color: colors.muted.foreground }}
+                          >
                             {formatDate(transaction.created_at)}
                           </Text>
                           {accountLabel && (
-                            <Text className="text-neutral-400 text-xs text-right flex-shrink">
+                            <Text
+                              className="text-xs text-right flex-shrink"
+                              style={{ color: colors.muted.foreground }}
+                            >
                               {accountLabel}
                             </Text>
                           )}
@@ -281,7 +318,10 @@ export default function TransactionsScreen() {
                     </View>
                   </TouchableHighlight>
                   {index < transactions.length - 1 && (
-                    <View className="h-px bg-neutral-800 mx-4" />
+                    <View
+                      className="h-px mx-4"
+                      style={{ backgroundColor: colors.border }}
+                    />
                   )}
                 </View>
               );
@@ -290,11 +330,21 @@ export default function TransactionsScreen() {
         ) : (
           /* Empty State */
           <View className="items-center justify-center py-12">
-            <MaterialIcons name="receipt-long" size={64} color="#6b7280" />
-            <Text className="text-neutral-400 text-lg mt-4 text-center">
+            <MaterialIcons
+              name="receipt-long"
+              size={64}
+              color={colors.muted.foreground}
+            />
+            <Text
+              className="text-lg mt-4 text-center"
+              style={{ color: colors.muted.foreground }}
+            >
               No transactions yet
             </Text>
-            <Text className="text-neutral-500 text-sm mt-2 text-center">
+            <Text
+              className="text-sm mt-2 text-center"
+              style={{ color: colors.muted.foreground }}
+            >
               Add your first transaction to get started
             </Text>
           </View>

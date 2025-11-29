@@ -18,6 +18,7 @@ import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Account, AccountFormData, AccountType } from "@/types/account";
 import { Category, CategoryReservation } from "@/types/category";
 import { AccountFormSheet } from "./components/AccountFormSheet";
+import { theme } from "@/constants/theme";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   INR: "₹",
@@ -169,12 +170,12 @@ const getTotalReserved = (accountId: string): number => {
   const hasReservations = accountReservations.length > 0;
 
     return (
-    <View className="mt-4">
-      <Text className="text-neutral-500 text-xs uppercase tracking-[0.2em]">
-        Reserved Funds
-      </Text>
-      {hasReservations ? (
-        <View className="mt-2 rounded-2xl border border-neutral-800/60">
+      <View className="mt-4">
+        <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
+          Reserved Funds
+        </Text>
+        {hasReservations ? (
+        <View className="mt-2 rounded-2xl border border-border">
           {accountReservations.map((item, index) => {
             const updatedLabel = item.updated_at
               ? `Updated ${formatDate(item.updated_at)}`
@@ -184,51 +185,51 @@ const getTotalReserved = (accountId: string): number => {
               <View key={item.id}>
                 <View className="flex-row items-center justify-between px-3 py-2">
                   <View className="flex-row items-center flex-1 pr-2">
-                    <View className="w-9 h-9 rounded-full bg-neutral-800 items-center justify-center">
+                    <View className="w-9 h-9 rounded-full bg-muted items-center justify-center">
                       <Text style={{ fontSize: 18 }}>{item.categoryEmoji}</Text>
                     </View>
                     <View className="ml-3 flex-1">
-                      <Text className="text-white text-sm font-semibold">
+                      <Text className="text-foreground text-sm font-semibold">
                         {item.categoryName}
                       </Text>
                       {updatedLabel && (
-                        <Text className="text-neutral-500 text-xs mt-0.5">
+                        <Text className="text-muted-foreground text-xs mt-0.5">
                           {updatedLabel}
                         </Text>
                       )}
                     </View>
                   </View>
-                  <Text className="text-green-400 text-sm font-semibold">
+                  <Text className="text-primary text-sm font-semibold">
                     {formatBalance(item.reserved_amount, item.currency)}
                   </Text>
                 </View>
                 {index < accountReservations.length - 1 && (
-                  <View className="h-px bg-neutral-800" />
+                  <View className="h-px bg-border" />
                 )}
               </View>
             );
           })}
         </View>
-      ) : (
-        <Text className="text-neutral-500 text-sm mt-2">
-          No funds yet. Create one to reserve money for goals.
-        </Text>
-      )}
-      <View className="mt-4">
-        <Text className="text-neutral-500 text-xs uppercase tracking-[0.2em]">
-          Unreserved
-        </Text>
-        <Text className="text-white text-lg font-bold mt-1">
-          {formatBalance(unallocated, account.currency)}
-        </Text>
+        ) : (
+          <Text className="text-muted-foreground text-sm mt-2">
+            No funds yet. Create one to reserve money for goals.
+          </Text>
+        )}
+        <View className="mt-4">
+          <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
+            Unreserved
+          </Text>
+          <Text className="text-foreground text-lg font-bold mt-1">
+            {formatBalance(unallocated, account.currency)}
+          </Text>
         </View>
         <TouchableOpacity
-        className="mt-4 flex-row items-center justify-center rounded-2xl bg-green-500/15 border border-green-500/30 py-2"
+          className="mt-4 flex-row items-center justify-center rounded-2xl bg-primary-soft border border-primary-border py-2"
           onPress={() => router.push("/(auth)/(tabs)/categories")}
         >
-        <MaterialIcons name="savings" size={16} color="#22c55e" />
-        <Text className="text-green-400 text-sm font-semibold ml-2">
-          {hasReservations ? "Manage Funds" : "+ Create Fund"}
+          <MaterialIcons name="savings" size={16} color={theme.colors.primary.DEFAULT} />
+          <Text className="text-primary text-sm font-semibold ml-2">
+            {hasReservations ? "Manage Funds" : "+ Create Fund"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -327,7 +328,7 @@ const getTotalReserved = (accountId: string): number => {
   const renderAccountCard = (account: Account, showTypeMeta: boolean) => (
     <LinearGradient
       key={account.id}
-      colors={["#1f1f23", "#131316"]}
+      colors={[theme.colors.surfaceGradient.from, theme.colors.surfaceGradient.to]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.cardGradient}
@@ -351,10 +352,10 @@ const getTotalReserved = (accountId: string): number => {
               />
             </View>
             <View className="flex-1">
-              <Text className="text-white text-base font-semibold">
+              <Text className="text-foreground text-base font-semibold">
                 {account.name}
               </Text>
-              <Text className="text-neutral-400 text-xs mt-1">
+              <Text className="text-muted-foreground text-xs mt-1">
                 {showTypeMeta
                   ? `${account.type.replace("_", " ")} • ${account.currency}`
                   : account.currency}
@@ -365,15 +366,15 @@ const getTotalReserved = (accountId: string): number => {
             onPress={() => handleDeleteAccount(account)}
             className="w-8 h-8 rounded-full bg-white/5 items-center justify-center"
           >
-            <MaterialIcons name="more-vert" size={18} color="#9ca3af" />
+            <MaterialIcons name="more-vert" size={18} color={theme.colors.muted.foreground} />
           </TouchableOpacity>
         </View>
 
         <View className="mt-4">
-          <Text className="text-neutral-500 text-xs uppercase tracking-[0.2em]">
+          <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
             Total Balance
           </Text>
-          <Text className="text-white text-2xl font-bold mt-1">
+          <Text className="text-foreground text-2xl font-bold mt-1">
             {formatBalance(account.balance, account.currency)}
           </Text>
         </View>
@@ -397,28 +398,28 @@ const getTotalReserved = (accountId: string): number => {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-neutral-900 items-center justify-center">
-        <ActivityIndicator size="large" color="#22c55e" />
+      <SafeAreaView className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator size="large" color={theme.colors.primary.DEFAULT} />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-neutral-900">
+    <SafeAreaView className="flex-1 bg-background">
       <ScrollView
         className="flex-1 px-4 pt-4"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#22c55e"
+            tintColor={theme.colors.primary.DEFAULT}
           />
         }
       >
         {/* Header */}
         <View className="flex-row items-center justify-between mb-6">
-          <Text className="text-3xl font-bold text-white">Accounts</Text>
-          <Text className="text-neutral-400 text-sm">
+          <Text className="text-3xl font-bold text-foreground">Accounts</Text>
+          <Text className="text-muted-foreground text-sm">
             {accounts.length} account{accounts.length !== 1 ? "s" : ""}
           </Text>
         </View>
@@ -426,7 +427,7 @@ const getTotalReserved = (accountId: string): number => {
         {/* Bank Accounts Section */}
         {groupedAccounts.bank.length > 0 && (
           <View className="mb-6">
-            <Text className="text-lg font-bold text-white mb-3">Bank Accounts</Text>
+            <Text className="text-lg font-bold text-foreground mb-3">Bank Accounts</Text>
             {groupedAccounts.bank.map((account) =>
               renderAccountCard(account, true)
             )}
@@ -436,7 +437,7 @@ const getTotalReserved = (accountId: string): number => {
         {/* Cash Section */}
         {groupedAccounts.cash.length > 0 && (
           <View className="mb-6">
-            <Text className="text-lg font-bold text-white mb-3">Cash</Text>
+            <Text className="text-lg font-bold text-foreground mb-3">Cash</Text>
             {groupedAccounts.cash.map((account) =>
               renderAccountCard(account, false)
             )}
@@ -446,11 +447,15 @@ const getTotalReserved = (accountId: string): number => {
         {/* Empty State */}
         {accounts.length === 0 && (
           <View className="items-center justify-center py-12">
-            <MaterialIcons name="account-balance-wallet" size={64} color="#6b7280" />
-            <Text className="text-neutral-400 text-lg mt-4 text-center">
+            <MaterialIcons
+              name="account-balance-wallet"
+              size={64}
+              color={theme.colors.muted.foreground}
+            />
+            <Text className="text-muted-foreground text-lg mt-4 text-center">
               No accounts yet
             </Text>
-            <Text className="text-neutral-500 text-sm mt-2 text-center">
+            <Text className="text-muted-foreground text-sm mt-2 text-center">
               Add your first account to get started
             </Text>
           </View>
@@ -458,14 +463,14 @@ const getTotalReserved = (accountId: string): number => {
 
         {/* Add Account Section */}
         <TouchableOpacity
-          className="border-2 border-dashed border-neutral-600 rounded-2xl p-4 mb-6"
+          className="border-2 border-dashed border-border rounded-2xl p-4 mb-6"
           onPress={handleAddAccount}
         >
           <View className="flex-row items-center">
-            <View className="bg-neutral-700 w-10 h-10 rounded-full items-center justify-center mr-3">
+            <View className="bg-muted w-10 h-10 rounded-full items-center justify-center mr-3">
               <MaterialIcons name="add" size={24} color="white" />
             </View>
-            <Text className="text-white text-base font-semibold">
+            <Text className="text-foreground text-base font-semibold">
               Add Account
             </Text>
           </View>
