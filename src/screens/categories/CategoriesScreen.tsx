@@ -12,7 +12,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
-import { Category, CategoryFormData, CategoryReservation } from "@/types/category";
+import {
+  Category,
+  CategoryFormData,
+  CategoryReservation,
+} from "@/types/category";
 import { Account } from "@/types/account";
 import { CategoryFormSheet } from "./components/CategoryFormSheet";
 import { PrimaryButton } from "@/screens/auth/components/PrimaryButton";
@@ -57,7 +61,9 @@ export default function CategoriesScreen() {
   const [reservationSheetVisible, setReservationSheetVisible] = useState(false);
   const [selectedCategoryForReservation, setSelectedCategoryForReservation] =
     useState<Category | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [expandedCategories, setExpandedCategories] = useState<
+    Record<string, boolean>
+  >({});
 
   useEffect(() => {
     if (session?.user) {
@@ -66,7 +72,11 @@ export default function CategoriesScreen() {
   }, [session]);
 
   const fetchData = async () => {
-    await Promise.all([fetchCategories(), fetchAccounts(), fetchReservations()]);
+    await Promise.all([
+      fetchCategories(),
+      fetchAccounts(),
+      fetchReservations(),
+    ]);
   };
 
   const fetchCategories = async () => {
@@ -153,7 +163,10 @@ export default function CategoriesScreen() {
               if (error) throw error;
               fetchData();
             } catch (error: any) {
-              Alert.alert("Error", error.message || "Failed to delete category");
+              Alert.alert(
+                "Error",
+                error.message || "Failed to delete category"
+              );
             }
           },
         },
@@ -209,7 +222,9 @@ export default function CategoriesScreen() {
     fetchData();
   };
 
-  const getReservationsForCategory = (categoryId: string): CategoryReservation[] => {
+  const getReservationsForCategory = (
+    categoryId: string
+  ): CategoryReservation[] => {
     return reservations.filter((r) => r.category_id === categoryId);
   };
 
@@ -254,7 +269,8 @@ export default function CategoriesScreen() {
       return (
         <View className="mt-3">
           <Text className="text-neutral-400 text-xs">
-            Income categories don't hold funds. Use them to classify incoming money.
+            Income categories don't hold funds. Use them to classify incoming
+            money.
           </Text>
           <View className="flex-row mt-3">
             <TouchableOpacity
@@ -262,7 +278,9 @@ export default function CategoriesScreen() {
               onPress={() => handleEditCategory(category)}
             >
               <MaterialIcons name="edit" size={16} color="#e5e7eb" />
-              <Text className="text-white text-sm font-semibold ml-2">Edit Category</Text>
+              <Text className="text-white text-sm font-semibold ml-2">
+                Edit Category
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -272,13 +290,17 @@ export default function CategoriesScreen() {
     if (!isReserved) {
       return (
         <View className="mt-3">
-          <Text className="text-neutral-500 text-sm">No funds reserved yet.</Text>
+          <Text className="text-neutral-500 text-sm">
+            No funds reserved yet.
+          </Text>
           <TouchableOpacity
             className="mt-3 flex-row items-center justify-center rounded-xl bg-green-500/15 border border-green-500/30 py-2"
             onPress={() => handleManageReservations(category)}
           >
             <MaterialIcons name="add" size={16} color="#22c55e" />
-            <Text className="text-green-400 text-sm font-semibold ml-2">Create Fund</Text>
+            <Text className="text-green-400 text-sm font-semibold ml-2">
+              Create Fund
+            </Text>
           </TouchableOpacity>
         </View>
       );
@@ -296,18 +318,23 @@ export default function CategoriesScreen() {
 
         <View className="rounded-2xl border border-neutral-800/70">
           {categoryReservations.map((reservation, index) => {
-            const account = accounts.find((a) => a.id === reservation.account_id);
+            const account = accounts.find(
+              (a) => a.id === reservation.account_id
+            );
             return (
               <View key={reservation.id}>
                 <View className="flex-row items-center justify-between px-3 py-2">
                   <View className="flex-row items-center">
-                    <View className="w-2 h-2 rounded-full bg-green-400 mr-2" />
+                    <View className="size-1.5 rounded-full bg-green-400 mr-2" />
                     <Text className="text-white text-sm">
                       {account?.name || "Unknown account"}
                     </Text>
                   </View>
                   <Text className="text-green-400 text-sm font-semibold">
-                    {formatBalance(reservation.reserved_amount, reservation.currency)}
+                    {formatBalance(
+                      reservation.reserved_amount,
+                      reservation.currency
+                    )}
                   </Text>
                 </View>
                 {index < categoryReservations.length - 1 && (
@@ -346,21 +373,27 @@ export default function CategoriesScreen() {
                 onPress={() => handleManageReservations(category)}
               >
                 <MaterialIcons name="north-east" size={16} color="#e5e7eb" />
-                <Text className="text-white text-sm font-semibold ml-2">Add Money</Text>
+                <Text className="text-white text-sm font-semibold ml-2">
+                  Add Money
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="flex-1 flex-row items-center justify-center rounded-xl bg-neutral-800 py-2"
                 onPress={() => handleManageReservations(category)}
               >
                 <MaterialIcons name="south-west" size={16} color="#e5e7eb" />
-                <Text className="text-white text-sm font-semibold ml-2">Withdraw</Text>
+                <Text className="text-white text-sm font-semibold ml-2">
+                  Withdraw
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 className="w-full flex-row items-center justify-center rounded-xl border border-neutral-700 py-2 mt-2"
                 onPress={() => handleManageReservations(category)}
               >
                 <MaterialIcons name="edit" size={16} color="#e5e7eb" />
-                <Text className="text-white text-sm font-semibold ml-2">Manage Fund</Text>
+                <Text className="text-white text-sm font-semibold ml-2">
+                  Manage Fund
+                </Text>
               </TouchableOpacity>
             </>
           )}
@@ -408,9 +441,13 @@ export default function CategoriesScreen() {
         <View className="flex-row mb-6 bg-neutral-800 rounded-2xl p-1">
           <TouchableOpacity
             onPress={() => setActiveTab("expense")}
-            className={`flex-1 py-3 rounded-xl ${
-              activeTab === "expense" ? "bg-green-600" : "bg-transparent"
-            }`}
+            className="flex-1 py-3 rounded-xl"
+            style={{
+              backgroundColor:
+                activeTab === "expense"
+                  ? "rgba(239, 68, 68, 0.1)"
+                  : "transparent",
+            }}
           >
             <Text
               className={`text-center font-semibold ${
@@ -422,9 +459,13 @@ export default function CategoriesScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setActiveTab("income")}
-            className={`flex-1 py-3 rounded-xl ${
-              activeTab === "income" ? "bg-green-600" : "bg-transparent"
-            }`}
+            className="flex-1 py-3 rounded-xl"
+            style={{
+              backgroundColor:
+                activeTab === "income"
+                  ? "rgba(34, 197, 94, 0.1)"
+                  : "transparent",
+            }}
           >
             <Text
               className={`text-center font-semibold ${
@@ -443,16 +484,22 @@ export default function CategoriesScreen() {
               No {activeTab} categories yet
             </Text>
             <Text className="text-neutral-400 text-sm text-center mt-2">
-              Create your first {activeTab} category to start organizing transactions.
+              Create your first {activeTab} category to start organizing
+              transactions.
             </Text>
             <View className="w-full mt-4">
-              <PrimaryButton label="Create Category" onPress={handleAddCategory} />
+              <PrimaryButton
+                label="Create Category"
+                onPress={handleAddCategory}
+              />
             </View>
           </View>
         ) : (
           <View>
             {filteredCategories.map((category) => {
-              const categoryReservations = getReservationsForCategory(category.id);
+              const categoryReservations = getReservationsForCategory(
+                category.id
+              );
               const totalReserved = getTotalReserved(category.id);
               const isReserved = categoryReservations.length > 0;
               const fundCurrency = categoryReservations[0]?.currency || "INR";
@@ -464,69 +511,90 @@ export default function CategoriesScreen() {
               return (
                 <View
                   key={category.id}
-                  className="bg-neutral-800/80 border border-neutral-800/60 rounded-2xl mb-3 overflow-hidden"
+                  className="border border-neutral-800/60 rounded-2xl mb-3 overflow-hidden"
+                  style={{
+                    backgroundColor:
+                      category.category_type === "expense"
+                        ? "rgba(239, 68, 68, 0.03)"
+                        : "rgba(34, 197, 94, 0.03)",
+                  }}
                 >
                   <TouchableOpacity
                     activeOpacity={0.85}
                     onPress={() => toggleCategory(category)}
-                    className="flex-row items-center px-4 py-3"
+                    className="flex-row items-center px-4 py-2"
                   >
                     <View
-                      className="w-12 h-12 rounded-xl items-center justify-center mr-3"
+                      className="w-14 h-14 rounded-2xl items-center justify-center mr-3"
                       style={{ backgroundColor: category.background_color }}
                     >
-                      <Text style={{ fontSize: 24 }}>{category.emoji}</Text>
+                      <Text style={{ fontSize: 28 }}>{category.emoji}</Text>
                     </View>
                     <View className="flex-1">
-                      <Text className="text-white text-base font-semibold">
+                      <Text className="text-white text-base font-semibold mb-1">
                         {category.name}
                       </Text>
-                      <View className="flex-row items-center mt-1">
-                        <Text className="text-neutral-400 text-xs">
-                          {category.category_type === "expense" ? "Expense" : "Income"}
-                        </Text>
-                        <Text className="text-neutral-600 text-xs mx-2">•</Text>
-                        <Text
-                          className={`text-xs ${
-                            isReserved ? "text-green-400" : "text-neutral-500"
-                          }`}
-                        >
-                          {fundLabel}
-                        </Text>
+                      <View className="flex-row items-center">
+                        {isReserved ? (
+                          <View className="flex-row items-center">
+                            <View className="w-1.5 h-1.5 rounded-full bg-green-400 mr-1.5" />
+                            <Text className="text-green-400 text-xs font-medium">
+                              {formatBalance(totalReserved, fundCurrency)}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View className="flex-row items-center">
+                            <View className="w-1.5 h-1.5 rounded-full bg-neutral-600 mr-1.5" />
+                            <Text className="text-neutral-600 text-xs font-medium">
+                              No fund
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
-                    <View className="items-end">
-                      {isReserved && (
-                        <View className="flex-row items-center mb-1">
-                          <View className="w-2 h-2 rounded-full bg-green-400" />
-                          <Text style={{ fontSize: 10 }} className="text-green-400 ml-1">
-                            Funded
-                          </Text>
+                    <View className="flex-row items-center ml-2">
+                      {category.category_type === "expense" && (
+                        <View className="w-9 h-9 rounded-full items-center justify-center mr-1.5">
+                          <MaterialIcons
+                            name={
+                              isExpanded ? "expand-less" : "keyboard-arrow-down"
+                            }
+                            size={24}
+                            color="#9ca3af"
+                          />
                         </View>
                       )}
-                      <View className="flex-row items-center">
-                        <TouchableOpacity
-                          onPress={() => handleCategoryActions(category)}
-                          className="w-8 h-8 rounded-full items-center justify-center mr-1"
-                        >
-                          <MaterialIcons name="more-vert" size={18} color="#9ca3af" />
-                        </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleCategoryActions(category);
+                        }}
+                        className="w-9 h-9 rounded-full items-center justify-center"
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
                         <MaterialIcons
-                          name={isExpanded ? "expand-less" : "chevron-right"}
-                          size={22}
-                          color="#e5e7eb"
+                          name="more-vert"
+                          size={20}
+                          color="#9ca3af"
                         />
-                      </View>
+                      </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
 
                   {isExpanded && (
-                    <View className="px-4 pb-4">
-                      <Text className="text-neutral-500 text-xs">
-                        Updated {formatDate(category.updated_at)}
-                      </Text>
-                      {renderCategoryDetails(category, categoryReservations, totalReserved)}
-                    </View>
+                    <>
+                      <View className="h-px bg-neutral-700/50 mx-4" />
+                      <View className="px-4 pt-3 pb-4">
+                        <Text className="text-neutral-500 text-xs mb-3">
+                          Updated {formatDate(category.updated_at)}
+                        </Text>
+                        {renderCategoryDetails(
+                          category,
+                          categoryReservations,
+                          totalReserved
+                        )}
+                      </View>
+                    </>
                   )}
                 </View>
               );
@@ -560,4 +628,3 @@ export default function CategoriesScreen() {
     </SafeAreaView>
   );
 }
-
