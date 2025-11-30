@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type ComponentProps } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef, type ComponentProps } from "react";
 import {
   Text,
   View,
@@ -9,7 +9,6 @@ import {
   TouchableHighlight,
   TouchableOpacity,
   Platform,
-  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -17,6 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Transaction, TransactionType } from "@/types/transaction";
 import { useThemeColors, type ThemeColors } from "@/constants/theme";
+import { FilterDropdown } from "./components/FilterDropdown";
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   INR: "₹",
@@ -55,7 +55,7 @@ function formatDateHeader(dateString: string): string {
   });
 }
 
-type DateRangeFilter = "month" | "week" | "year";
+export type DateRangeFilter = "month" | "week" | "year";
 
 function getDateRangeForPeriod(
   period: DateRangeFilter,
@@ -227,6 +227,13 @@ export default function TransactionsScreen() {
   const [filterType, setFilterType] = useState<DateRangeFilter>("month");
   const [currentPeriodDate, setCurrentPeriodDate] = useState(new Date());
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
+  const filterButtonRef = useRef<View>(null);
+  const [filterButtonLayout, setFilterButtonLayout] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
     if (session) {
@@ -329,12 +336,28 @@ export default function TransactionsScreen() {
     setCurrentPeriodDate(newDate);
   };
 
-  const handleFilterTypeChange = (type: DateRangeFilter) => {
+  const handleFilterTypeChange = useCallback((type: DateRangeFilter) => {
     setFilterType(type);
     setShowFilterDropdown(false);
     // Reset to current period when changing filter type
     setCurrentPeriodDate(new Date());
-  };
+  }, []);
+
+  const handleCloseDropdown = useCallback(() => {
+    setShowFilterDropdown(false);
+  }, []);
+
+  const handleToggleDropdown = useCallback(() => {
+    if (!showFilterDropdown) {
+      // Measure button position before showing dropdown
+      filterButtonRef.current?.measureInWindow((x, y, width, height) => {
+        setFilterButtonLayout({ x, y, width, height });
+        setShowFilterDropdown(true);
+      });
+    } else {
+      setShowFilterDropdown(false);
+    }
+  }, [showFilterDropdown]);
 
   if (loading) {
     return (
@@ -423,7 +446,8 @@ export default function TransactionsScreen() {
           </View>
           <View className="relative">
             <TouchableOpacity
-              onPress={() => setShowFilterDropdown(!showFilterDropdown)}
+              ref={filterButtonRef}
+              onPress={handleToggleDropdown}
               className="flex-row items-center px-2 py-1"
             >
               <Text
@@ -438,59 +462,6 @@ export default function TransactionsScreen() {
                 color={colors.primary.DEFAULT}
               />
             </TouchableOpacity>
-            {showFilterDropdown && (
-              <Modal
-                transparent
-                visible={showFilterDropdown}
-                onRequestClose={() => setShowFilterDropdown(false)}
-                animationType="fade"
-              >
-                <TouchableOpacity
-                  activeOpacity={1}
-                  onPress={() => setShowFilterDropdown(false)}
-                  className="flex-1"
-                >
-                  <View
-                    className="absolute right-4 top-20 rounded-lg shadow-lg"
-                    style={{ backgroundColor: colors.background.subtle }}
-                  >
-                    {(["week", "month", "year"] as DateRangeFilter[]).map(
-                      (type, index) => (
-                        <TouchableOpacity
-                          key={type}
-                          onPress={() => handleFilterTypeChange(type)}
-                          className="px-4 py-3"
-                          style={{
-                            borderBottomWidth: index < 2 ? 1 : 0,
-                            borderBottomColor: colors.border,
-                            backgroundColor:
-                              filterType === type
-                                ? colors.primary.soft
-                                : "transparent",
-                          }}
-                        >
-                          <View className="flex-row items-center justify-between">
-                            <Text
-                              className="text-sm capitalize"
-                              style={{ color: colors.foreground }}
-                            >
-                              {type}
-                            </Text>
-                            {filterType === type && (
-                              <MaterialIcons
-                                name="check"
-                                size={20}
-                                color={colors.primary.DEFAULT}
-                              />
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      )
-                    )}
-                  </View>
-                </TouchableOpacity>
-              </Modal>
-            )}
           </View>
         </View>
 
@@ -634,6 +605,15 @@ export default function TransactionsScreen() {
           </View>
         )}
       </ScrollView>
+      {showFilterDropdown && filterButtonLayout && (
+        <FilterDropdown
+          visible={showFilterDropdown}
+          filterType={filterType}
+          onClose={handleCloseDropdown}
+          onSelect={handleFilterTypeChange}
+          buttonLayout={filterButtonLayout}
+        />
+      )}
     </SafeAreaView>
   );
 }
