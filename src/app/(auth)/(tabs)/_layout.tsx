@@ -24,6 +24,7 @@ export default function TabLayout() {
             paddingTop: 8,
           },
         }}
+        initialRouteName="transactions"
       >
         <Tabs.Screen
           name="index"
@@ -45,7 +46,11 @@ export default function TabLayout() {
           options={{
             title: "Accounts",
             tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="account-balance-wallet" size={size} color={color} />
+              <MaterialIcons
+                name="account-balance-wallet"
+                size={size}
+                color={color}
+              />
             ),
           }}
         />
