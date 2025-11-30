@@ -2,6 +2,7 @@
   "expo": {
     "name": "BudgetWise",
     "slug": "budgetwise",
+    "owner": "utkarshh",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/brand/icon.png",
@@ -12,6 +13,7 @@
       "supportsTablet": false
     },
     "android": {
+      "package": "com.utkarshh.budgetwise",
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./src/assets/brand/icon.png"
@@ -41,6 +43,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "329d2502-1896-41fa-aef4-4e36b0ac2c33"
+      }
     }
   }
 }
