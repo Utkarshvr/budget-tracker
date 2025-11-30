@@ -2,7 +2,7 @@ import React, { memo, useCallback } from "react";
 import { TouchableOpacity, View, Text, Pressable } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useThemeColors } from "@/constants/theme";
-import type { DateRangeFilter } from "../TransactionsScreen";
+import type { DateRangeFilter } from "../utils/dateRange";
 
 type FilterDropdownProps = {
   visible: boolean;
@@ -51,7 +51,7 @@ export const FilterDropdown = memo<FilterDropdownProps>(
             top: dropdownTop,
             backgroundColor: colors.background.subtle,
             borderRadius: 8,
-            shadowColor: "#000",
+            shadowColor: colors.shadow,
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.25,
             shadowRadius: 3.84,
