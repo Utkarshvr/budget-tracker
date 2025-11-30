@@ -28,10 +28,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "Home",
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="home" size={size} color={color} />
-            ),
+            href: null, // Hide from tab bar
           }}
         />
         <Tabs.Screen
@@ -40,15 +37,6 @@ export default function TabLayout() {
             title: "Transactions",
             tabBarIcon: ({ color, size }) => (
               <MaterialIcons name="receipt-long" size={size} color={color} />
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="plan"
-          options={{
-            title: "Plan",
-            tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="savings" size={size} color={color} />
             ),
           }}
         />
