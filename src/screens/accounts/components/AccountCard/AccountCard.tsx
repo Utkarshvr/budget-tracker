@@ -2,7 +2,7 @@ import { Text, View, TouchableOpacity, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Account } from "@/types/account";
-import { CategoryReservation } from "@/types/category";
+import { Category, CategoryReservation } from "@/types/category";
 import { theme } from "@/constants/theme";
 import { ACCOUNT_TYPE_ICONS, ACCOUNT_TYPE_COLORS, formatBalance, getAccountReservations, getTotalReserved } from "../../utils";
 import { ReservationsSection } from "./ReservationsSection";
@@ -10,7 +10,7 @@ import { ReservationsSection } from "./ReservationsSection";
 type AccountCardProps = {
   account: Account;
   reservations: CategoryReservation[];
-  categories: Array<{ id: string; name: string; emoji: string }>;
+  categories: Category[];
   showTypeMeta: boolean;
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;

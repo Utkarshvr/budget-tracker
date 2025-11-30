@@ -1,13 +1,13 @@
 import { Text, View } from "react-native";
 import { Account } from "@/types/account";
-import { CategoryReservation } from "@/types/category";
+import { Category, CategoryReservation } from "@/types/category";
 import { AccountCard } from "./AccountCard/AccountCard";
 
 type AccountsSectionProps = {
   title: string;
   accounts: Account[];
   reservations: CategoryReservation[];
-  categories: Array<{ id: string; name: string; emoji: string }>;
+  categories: Category[];
   showTypeMeta: boolean;
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;
