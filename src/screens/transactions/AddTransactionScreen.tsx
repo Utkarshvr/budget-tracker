@@ -8,7 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
@@ -31,6 +31,7 @@ export default function AddTransactionScreen({
   onSuccess,
 }: AddTransactionScreenProps) {
   const { session } = useSupabaseSession();
+  const insets = useSafeAreaInsets();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reservations, setReservations] = useState<CategoryReservation[]>([]);
@@ -401,22 +402,12 @@ export default function AddTransactionScreen({
           <Text className="text-lg font-semibold text-white">
             ₹{formData.amount}
           </Text>
-          <TouchableOpacity
-            onPress={handleSubmit}
-            disabled={submitting}
-            className="bg-green-500 px-4 py-2 rounded-full"
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color="black" />
-            ) : (
-              <Text className="text-black font-semibold">Add</Text>
-            )}
-          </TouchableOpacity>
+          <View style={{ width: 24 }} />
         </View>
 
         <ScrollView
           className="flex-1"
-          contentContainerStyle={{ paddingBottom: 32 }}
+          contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
         >
 
@@ -569,6 +560,26 @@ export default function AddTransactionScreen({
               </View>
             )}
         </ScrollView>
+
+        {/* Add Transaction Button - Fixed at Bottom */}
+        <View
+          className="absolute bottom-0 left-0 right-0 bg-neutral-900 px-4 pt-2"
+          style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+        >
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={submitting}
+            className="bg-primary rounded-full py-4 items-center justify-center"
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Text className="text-primary-foreground text-base font-bold">
+                Add Transaction
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
 
       {/* Transaction Type Sheet */}
