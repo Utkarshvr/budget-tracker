@@ -15,9 +15,9 @@ export function TransactionsHeader({ totalCount, colors }: TransactionsHeaderPro
       >
         Transactions
       </Text>
-      <Text className="text-sm" style={{ color: colors.muted.foreground }}>
+      {/* <Text className="text-sm" style={{ color: colors.muted.foreground }}>
         {totalCount} transaction{totalCount !== 1 ? "s" : ""}
-      </Text>
+      </Text> */}
     </View>
   );
 }

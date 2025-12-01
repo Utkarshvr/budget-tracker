@@ -1,18 +1,18 @@
 import { Text, TouchableOpacity, View } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { type RefObject } from "react";
+import { useMemo } from "react";
 import { type ThemeColors } from "@/constants/theme";
 import { type DateRangeFilter } from "../utils/dateRange";
 import { formatDateRange } from "../utils/dateRange";
+import { type Transaction } from "@/types/transaction";
+import { formatAmount } from "../utils/formatting";
 
 type DateRangeFilterBarProps = {
   filterType: DateRangeFilter;
   currentDateRange: { start: Date; end: Date };
   onPrev: () => void;
   onNext: () => void;
-  onToggleDropdown: () => void;
-  showDropdown: boolean;
-  filterButtonRef: RefObject<View | null>;
+  filteredTransactions: Transaction[];
   colors: ThemeColors;
 };
 
@@ -21,18 +21,43 @@ export function DateRangeFilterBar({
   currentDateRange,
   onPrev,
   onNext,
-  onToggleDropdown,
-  showDropdown,
-  filterButtonRef,
+  filteredTransactions,
   colors,
 }: DateRangeFilterBarProps) {
+  // Calculate income and expense totals
+  const { incomeTotal, expenseTotal, currency } = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    let defaultCurrency = "INR";
+
+    filteredTransactions.forEach((transaction) => {
+      if (transaction.type === "income") {
+        income += transaction.amount;
+        if (defaultCurrency === "INR" && transaction.currency) {
+          defaultCurrency = transaction.currency;
+        }
+      } else if (transaction.type === "expense") {
+        expense += transaction.amount;
+        if (defaultCurrency === "INR" && transaction.currency) {
+          defaultCurrency = transaction.currency;
+        }
+      }
+    });
+
+    return {
+      incomeTotal: income,
+      expenseTotal: expense,
+      currency: defaultCurrency,
+    };
+  }, [filteredTransactions]);
+
   return (
-    <View className="flex-row items-center justify-between">
-      <View className="flex-row items-center flex-1">
+    <View className="flex-row items-center justify-between gap-2">
+      <View className="flex-row items-center ">
         <TouchableOpacity
           onPress={onPrev}
           className="p-1"
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          // hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialIcons
             name="chevron-left"
@@ -41,8 +66,8 @@ export function DateRangeFilterBar({
           />
         </TouchableOpacity>
         <Text
-          className="text-base font-semibold text-center"
-          style={{ color: colors.foreground, marginHorizontal: 4 }}
+          className="text-sm font-semibold text-center"
+          style={{ color: colors.foreground }}
         >
           {formatDateRange(
             currentDateRange.start,
@@ -53,7 +78,7 @@ export function DateRangeFilterBar({
         <TouchableOpacity
           onPress={onNext}
           className="p-1"
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          // hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <MaterialIcons
             name="chevron-right"
@@ -62,26 +87,21 @@ export function DateRangeFilterBar({
           />
         </TouchableOpacity>
       </View>
-      <View className="relative">
-        <TouchableOpacity
-          ref={filterButtonRef}
-          onPress={onToggleDropdown}
-          className="flex-row items-center px-2 py-1"
-        >
+      <View className="flex-row items-center bg-background-subtle px-2 py-1 rounded-md">
+        <Text className="text-sm" style={{ color: colors.muted.foreground }}>
           <Text
-            className="text-sm capitalize mr-1"
-            style={{ color: colors.primary.DEFAULT }}
+            className={`${colors.transaction.income.amountClass} font-semibold`}
           >
-            {filterType}
+            {formatAmount(incomeTotal, currency)}
           </Text>
-          <MaterialIcons
-            name={showDropdown ? "expand-less" : "expand-more"}
-            size={20}
-            color={colors.primary.DEFAULT}
-          />
-        </TouchableOpacity>
+          {" | "}
+          <Text
+            className={`${colors.transaction.expense.amountClass} font-semibold`}
+          >
+            {formatAmount(expenseTotal, currency)}
+          </Text>
+        </Text>
       </View>
     </View>
   );
 }
-

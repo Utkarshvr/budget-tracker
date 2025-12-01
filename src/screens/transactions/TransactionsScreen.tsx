@@ -123,6 +123,11 @@ export default function TransactionsScreen() {
     0
   );
 
+  // Flatten filtered transactions for income/expense calculation
+  const filteredTransactions = filteredAndGroupedTransactions.flatMap(
+    (group) => group.transactions
+  );
+
   if (loading) {
     return <FullScreenLoader colors={colors} />;
   }
@@ -149,9 +154,7 @@ export default function TransactionsScreen() {
           currentDateRange={currentDateRange}
           onPrev={handlePreviousPeriod}
           onNext={handleNextPeriod}
-          onToggleDropdown={handleToggleDropdown}
-          showDropdown={showFilterDropdown}
-          filterButtonRef={filterButtonRef}
+          filteredTransactions={filteredTransactions}
           colors={colors}
         />
 

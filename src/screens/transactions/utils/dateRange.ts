@@ -45,14 +45,10 @@ export function formatDateRange(
   period: DateRangeFilter
 ): string {
   if (period === "month") {
-    return `${start.toLocaleDateString("en-US", {
+    return start.toLocaleDateString("en-US", {
       month: "short",
-      day: "numeric",
-    })} - ${end.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
       year: "numeric",
-    })}`;
+    });
   } else if (period === "week") {
     return `${start.toLocaleDateString("en-US", {
       month: "short",

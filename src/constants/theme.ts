@@ -32,7 +32,7 @@ const darkColors = {
   },
 
   // Generic borders / inputs / focus
-  border: "#404040", // neutral-700
+  border: "#333333",
   input: "#111827",
   ring: "#22c55e",
 
@@ -85,12 +85,12 @@ const darkColors = {
     to: "#171717", // neutral-900, matches background.DEFAULT
   },
   overlay: "rgba(15, 23, 42, 0.7)",
-  
+
   // Card / surface overlays
   cardOverlay: "rgba(18, 18, 20, 0.92)", // semi-transparent card background
   shadow: "#000000", // shadow color
   white: "#ffffff", // white for icons/text
-  
+
   // Tab / category backgrounds with opacity
   tabActive: {
     expense: "rgba(239, 68, 68, 0.1)", // destructive with 10% opacity
@@ -187,12 +187,12 @@ const lightColors = {
     to: "#e5e7eb",
   },
   overlay: "rgba(15, 23, 42, 0.35)",
-  
+
   // Card / surface overlays
   cardOverlay: "rgba(255, 255, 255, 0.95)", // semi-transparent card background for light mode
   shadow: "#000000", // shadow color
   white: "#ffffff", // white for icons/text
-  
+
   // Tab / category backgrounds with opacity
   tabActive: {
     expense: "rgba(239, 68, 68, 0.1)", // destructive with 10% opacity
