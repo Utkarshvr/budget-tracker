@@ -16,7 +16,6 @@ import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Account } from "@/types/account";
 import { TransactionFormData, TransactionType } from "@/types/transaction";
 import { Category, CategoryReservation } from "@/types/category";
-import { CategorySelectSheet } from "./components/CategorySelectSheet";
 import { TransactionTypeSheet } from "./components/TransactionTypeSheet";
 import { AccountSelectSheet } from "./components/AccountSelectSheet";
 
@@ -40,7 +39,6 @@ export default function AddTransactionScreen({
   const [submitting, setSubmitting] = useState(false);
   const [showTypeSheet, setShowTypeSheet] = useState(false);
   const [showAccountSheet, setShowAccountSheet] = useState(false);
-  const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [accountSheetMode, setAccountSheetMode] = useState<"from" | "to">("from");
 
   const [formData, setFormData] = useState<TransactionFormData>({
@@ -350,33 +348,38 @@ export default function AddTransactionScreen({
     return account?.name || "Select Account";
   };
 
-  // Get suggested categories with their reservation info
-  const suggestedCategories = useMemo(() => {
-    if (formData.type !== "expense" || !formData.from_account_id) {
+  // Categories to display based on transaction type
+  const displayCategories = useMemo(() => {
+    if (formData.type === "transfer") {
       return [];
     }
 
-    const expenseCategories = categories.filter((c) => c.category_type === "expense");
-    
-    return expenseCategories
+    const categoryType = formData.type === "income" ? "income" : "expense";
+
+    return categories
+      .filter((c) => c.category_type === categoryType)
       .map((category) => {
-        const reservation = reservations.find(
-          (r) =>
-            r.category_id === category.id &&
-            r.account_id === formData.from_account_id
-        );
+        let amountLeft: number | null = null;
+
+        if (formData.type === "expense" && formData.from_account_id) {
+          const reservation = reservations.find(
+            (r) =>
+              r.category_id === category.id &&
+              r.account_id === formData.from_account_id
+          );
+
+          // Only set amountLeft if reservation exists (even if amount is 0)
+          // If no reservation exists, keep it null (don't show "left" text)
+          if (reservation) {
+            amountLeft = reservation.reserved_amount / 100;
+          }
+        }
 
         return {
           category,
-          reservation,
-          amountLeft: reservation ? reservation.reserved_amount / 100 : 0,
+          amountLeft,
         };
-      })
-      .sort((a, b) => {
-        // Sort by amount left descending
-        return b.amountLeft - a.amountLeft;
-      })
-      .slice(0, 3); // Show top 3
+      });
   }, [categories, reservations, formData.type, formData.from_account_id]);
 
   if (loadingAccounts) {
@@ -509,68 +512,62 @@ export default function AddTransactionScreen({
             </TouchableOpacity>
           )}
 
-          {/* Suggested Categories Section */}
-          {formData.type === "expense" && suggestedCategories.length > 0 && (
-            <View className="px-4 py-6">
-              <Text className="text-neutral-500 text-xs font-semibold uppercase mb-3">
-                SUGGESTED
-              </Text>
-              {suggestedCategories.map(({ category, amountLeft }) => (
-                <TouchableOpacity
-                  key={category.id}
-                  onPress={() => handleCategorySelect(category)}
-                  className="flex-row items-center justify-between mb-4"
-                >
-                  <View className="flex-row items-center flex-1">
-                    <View
-                      className="w-12 h-12 rounded-xl items-center justify-center mr-3"
-                      style={{ backgroundColor: category.background_color }}
-                    >
-                      <Text style={{ fontSize: 24 }}>{category.emoji}</Text>
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-white text-base font-medium">
-                        {category.name}
-                      </Text>
-                      <Text className="text-neutral-500 text-sm">
-                        {amountLeft > 0
-                          ? `₹${amountLeft.toFixed(2)} left`
-                          : "₹0.00 left"}
-                      </Text>
-                    </View>
-                    <View
-                      className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
-                        selectedCategory?.id === category.id
-                          ? "border-green-500 bg-green-500"
-                          : "border-neutral-600"
-                      }`}
-                    >
-                      {selectedCategory?.id === category.id && (
-                        <MaterialIcons name="check" size={16} color="black" />
-                      )}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Categories Section */}
-          {(formData.type === "expense" || formData.type === "income") && (
-            <View className="px-4 py-6">
-              <Text className="text-neutral-500 text-xs font-semibold uppercase mb-3">
-                CATEGORIES
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowCategorySheet(true)}
-                className="flex-row items-center"
-              >
-                <Text className="text-green-500 text-base font-medium">
-                  {selectedCategory ? "Change Category" : "Select Category"}
+          {/* Categories List (Income / Expense) */}
+          {(formData.type === "expense" || formData.type === "income") &&
+            displayCategories.length > 0 && (
+              <View className="px-4 py-6">
+                <Text className="text-neutral-500 text-xs font-semibold uppercase mb-3">
+                  {formData.type === "income" ? "INCOME CATEGORIES" : "CATEGORIES"}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                {displayCategories.map(({ category, amountLeft }) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    onPress={() => handleCategorySelect(category)}
+                    className="flex-row items-center justify-between mb-4"
+                  >
+                    <View className="flex-row items-center flex-1">
+                      <View
+                        className="w-12 h-12 rounded-xl items-center justify-center mr-3"
+                        style={{ backgroundColor: category.background_color }}
+                      >
+                        <Text style={{ fontSize: 24 }}>{category.emoji}</Text>
+                      </View>
+                      <View
+                        className={`flex-1 ${
+                          formData.type === "expense" &&
+                          formData.from_account_id &&
+                          amountLeft !== null
+                            ? ""
+                            : "justify-center"
+                        }`}
+                      >
+                        <Text className="text-white text-base font-medium">
+                          {category.name}
+                        </Text>
+                        {formData.type === "expense" &&
+                          formData.from_account_id &&
+                          amountLeft !== null && (
+                            <Text className="text-neutral-500 text-sm">
+                              {`₹${amountLeft.toFixed(2)} left`}
+                            </Text>
+                          )}
+                      </View>
+                      <View
+                        className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
+                          selectedCategory?.id === category.id
+                            ? "border-green-500 bg-green-500"
+                            : "border-neutral-600"
+                        }`}
+                      >
+                        {selectedCategory?.id === category.id && (
+                          <MaterialIcons name="check" size={16} color="black" />
+                        )}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
         </ScrollView>
       </SafeAreaView>
 
@@ -601,25 +598,6 @@ export default function AddTransactionScreen({
         onSelect={handleAccountSelect}
       />
 
-      {/* Category Select Sheet */}
-      {(formData.type === "expense" ||
-        formData.type === "income" ||
-        formData.type === "transfer") && (
-        <CategorySelectSheet
-          visible={showCategorySheet}
-          selectedCategoryId={formData.category_id}
-          selectedAccountId={
-            formData.type === "expense"
-              ? formData.from_account_id
-              : formData.type === "income"
-              ? formData.to_account_id
-              : null
-          }
-          onClose={() => setShowCategorySheet(false)}
-          onSelect={handleCategorySelect}
-          transactionType={formData.type}
-        />
-      )}
     </>
   );
 }
