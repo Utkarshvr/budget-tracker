@@ -152,25 +152,25 @@ export default function AmountInputScreen({
 
         {/* Custom Numpad */}
         <View className="pb-8 px-6">
-          <View className="flex-row justify-between mb-4">
+          <View className="flex-row justify-between">
             <NumpadButton text="1" onPress={() => handleNumberPress("1")} />
             <NumpadButton text="2" onPress={() => handleNumberPress("2")} />
             <NumpadButton text="3" onPress={() => handleNumberPress("3")} />
           </View>
 
-          <View className="flex-row justify-between mb-4">
+          <View className="flex-row justify-between">
             <NumpadButton text="4" onPress={() => handleNumberPress("4")} />
             <NumpadButton text="5" onPress={() => handleNumberPress("5")} />
             <NumpadButton text="6" onPress={() => handleNumberPress("6")} />
           </View>
 
-          <View className="flex-row justify-between mb-4">
+          <View className="flex-row justify-between">
             <NumpadButton text="7" onPress={() => handleNumberPress("7")} />
             <NumpadButton text="8" onPress={() => handleNumberPress("8")} />
             <NumpadButton text="9" onPress={() => handleNumberPress("9")} />
           </View>
 
-          <View className="flex-row justify-between mb-6">
+          <View className="flex-row justify-between mb-4">
             <NumpadButton text="." onPress={handleDecimal} />
             <NumpadButton text="0" onPress={() => handleNumberPress("0")} />
             <NumpadButton icon="backspace" onPress={handleBackspace} />
@@ -181,7 +181,7 @@ export default function AmountInputScreen({
             onPress={handleContinue}
             disabled={numericAmount <= 0}
             className={`rounded-full py-4 ${
-              numericAmount > 0 ? "bg-green-500" : "bg-neutral-800"
+              numericAmount > 0 ? "bg-white" : "bg-neutral-800"
             }`}
           >
             <Text
