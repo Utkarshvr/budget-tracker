@@ -1,12 +1,16 @@
 import { Tabs } from "expo-router";
 import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AmountInputScreen from "@/screens/transactions/AmountInputScreen";
+import AddTransactionScreen from "@/screens/transactions/AddTransactionScreen";
 
 export default function TabLayout() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [showAmountInput, setShowAmountInput] = useState(false);
+  const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [transactionAmount, setTransactionAmount] = useState("0.00");
 
   return (
     <View style={{ flex: 1 }}>
@@ -71,11 +75,36 @@ export default function TabLayout() {
             bottom: 60 + insets.bottom + 20, // Above the tab bar with safe area
           },
         ]}
-        onPress={() => router.push("/(auth)/add-transaction")}
+        onPress={() => setShowAmountInput(true)}
         activeOpacity={0.8}
       >
         <MaterialIcons name="add" size={28} color="white" />
       </TouchableOpacity>
+
+      {/* Amount Input Screen */}
+      <AmountInputScreen
+        visible={showAmountInput}
+        onClose={() => setShowAmountInput(false)}
+        onContinue={(amount) => {
+          setTransactionAmount(amount);
+          setShowAmountInput(false);
+          setShowAddTransaction(true);
+        }}
+      />
+
+      {/* Add Transaction Screen */}
+      {showAddTransaction && (
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+          <AddTransactionScreen
+            initialAmount={transactionAmount}
+            onClose={() => setShowAddTransaction(false)}
+            onSuccess={() => {
+              setShowAddTransaction(false);
+              setTransactionAmount("0.00");
+            }}
+          />
+        </View>
+      )}
     </View>
   );
 }

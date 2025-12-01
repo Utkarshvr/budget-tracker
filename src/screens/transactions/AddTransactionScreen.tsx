@@ -16,17 +16,21 @@ import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Account } from "@/types/account";
 import { TransactionFormData, TransactionType } from "@/types/transaction";
 import { Category, CategoryReservation } from "@/types/category";
-import { PrimaryButton } from "@/screens/auth/components/PrimaryButton";
 import { CategorySelectSheet } from "./components/CategorySelectSheet";
+import { TransactionTypeSheet } from "./components/TransactionTypeSheet";
+import { AccountSelectSheet } from "./components/AccountSelectSheet";
 
-const TRANSACTION_TYPES: { value: TransactionType; label: string; icon: string }[] = [
-  { value: "expense", label: "Expense", icon: "arrow-downward" },
-  { value: "income", label: "Income", icon: "mail" },
-  { value: "transfer", label: "Transfer", icon: "swap-horiz" },
-];
+type AddTransactionScreenProps = {
+  initialAmount: string;
+  onClose: () => void;
+  onSuccess: () => void;
+};
 
-export default function AddTransactionScreen() {
-  const router = useRouter();
+export default function AddTransactionScreen({
+  initialAmount,
+  onClose,
+  onSuccess,
+}: AddTransactionScreenProps) {
   const { session } = useSupabaseSession();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -34,14 +38,15 @@ export default function AddTransactionScreen() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [showFromAccounts, setShowFromAccounts] = useState(false);
-  const [showToAccounts, setShowToAccounts] = useState(false);
+  const [showTypeSheet, setShowTypeSheet] = useState(false);
+  const [showAccountSheet, setShowAccountSheet] = useState(false);
   const [showCategorySheet, setShowCategorySheet] = useState(false);
+  const [accountSheetMode, setAccountSheetMode] = useState<"from" | "to">("from");
 
   const [formData, setFormData] = useState<TransactionFormData>({
     note: "",
     type: "expense",
-    amount: "",
+    amount: initialAmount,
     from_account_id: null,
     to_account_id: null,
     category_id: null,
@@ -58,6 +63,11 @@ export default function AddTransactionScreen() {
       fetchReservations();
     }
   }, [session]);
+
+  // Update amount when initialAmount changes
+  useEffect(() => {
+    setFormData((prev) => ({ ...prev, amount: initialAmount }));
+  }, [initialAmount]);
 
   // Update selectedCategory when category_id changes
   useEffect(() => {
@@ -258,7 +268,10 @@ export default function AddTransactionScreen() {
       Alert.alert("Success", "Transaction added successfully", [
         {
           text: "OK",
-          onPress: () => router.back(),
+          onPress: () => {
+            onSuccess();
+            onClose();
+          },
         },
       ]);
     } catch (error: any) {
@@ -266,17 +279,6 @@ export default function AddTransactionScreen() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const formatAmount = (value: string): string => {
-    // Remove non-numeric characters except decimal point
-    const cleaned = value.replace(/[^\d.]/g, "");
-    // Ensure only one decimal point
-    const parts = cleaned.split(".");
-    if (parts.length > 2) {
-      return parts[0] + "." + parts.slice(1).join("");
-    }
-    return cleaned;
   };
 
   const handleTypeChange = (type: TransactionType) => {
@@ -290,8 +292,6 @@ export default function AddTransactionScreen() {
       category_id: type === "transfer" ? null : formData.category_id,
     });
     setErrors({});
-    setShowFromAccounts(false);
-    setShowToAccounts(false);
     if (type === "transfer") {
       setSelectedCategory(null);
     }
@@ -305,6 +305,80 @@ export default function AddTransactionScreen() {
     });
   };
 
+  const handleAccountSelect = (account: Account) => {
+    if (accountSheetMode === "from") {
+      setFormData({ ...formData, from_account_id: account.id });
+    } else {
+      setFormData({ ...formData, to_account_id: account.id });
+    }
+  };
+
+  const openAccountSheet = (mode: "from" | "to") => {
+    setAccountSheetMode(mode);
+    setShowAccountSheet(true);
+  };
+
+  const getTypeLabel = () => {
+    switch (formData.type) {
+      case "expense":
+        return "Expense";
+      case "income":
+        return "Income";
+      case "transfer":
+        return "Transfer";
+      default:
+        return "Expense";
+    }
+  };
+
+  const getTypeIcon = () => {
+    switch (formData.type) {
+      case "expense":
+        return "inbox";
+      case "income":
+        return "add-circle-outline";
+      case "transfer":
+        return "sync-alt";
+      default:
+        return "inbox";
+    }
+  };
+
+  const getAccountLabel = (accountId: string | null) => {
+    if (!accountId) return "Select Account";
+    const account = accounts.find((a) => a.id === accountId);
+    return account?.name || "Select Account";
+  };
+
+  // Get suggested categories with their reservation info
+  const suggestedCategories = useMemo(() => {
+    if (formData.type !== "expense" || !formData.from_account_id) {
+      return [];
+    }
+
+    const expenseCategories = categories.filter((c) => c.category_type === "expense");
+    
+    return expenseCategories
+      .map((category) => {
+        const reservation = reservations.find(
+          (r) =>
+            r.category_id === category.id &&
+            r.account_id === formData.from_account_id
+        );
+
+        return {
+          category,
+          reservation,
+          amountLeft: reservation ? reservation.reserved_amount / 100 : 0,
+        };
+      })
+      .sort((a, b) => {
+        // Sort by amount left descending
+        return b.amountLeft - a.amountLeft;
+      })
+      .slice(0, 3); // Show top 3
+  }, [categories, reservations, formData.type, formData.from_account_id]);
+
   if (loadingAccounts) {
     return (
       <SafeAreaView className="flex-1 bg-neutral-900 items-center justify-center">
@@ -314,335 +388,239 @@ export default function AddTransactionScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-neutral-900">
-      <ScrollView
-        className="flex-1 px-4 pt-4"
-        contentContainerStyle={{ paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
-      >
+    <>
+      <SafeAreaView className="flex-1 bg-neutral-900">
         {/* Header */}
-        <View className="flex-row items-center justify-between mb-6">
-          <TouchableOpacity onPress={() => router.back()}>
+        <View className="flex-row items-center justify-between px-4 py-3 bg-neutral-800">
+          <TouchableOpacity onPress={onClose}>
             <MaterialIcons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-          <Text className="text-2xl font-bold text-white">Add Transaction</Text>
-          <View style={{ width: 24 }} />
+          <Text className="text-lg font-semibold text-white">
+            ₹{formData.amount}
+          </Text>
+          <TouchableOpacity
+            onPress={handleSubmit}
+            disabled={submitting}
+            className="bg-green-500 px-4 py-2 rounded-full"
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="black" />
+            ) : (
+              <Text className="text-black font-semibold">Add</Text>
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* Transaction Note */}
-        <View className="mb-6">
-          <Text className="text-sm font-medium text-neutral-300 mb-2">
-            For?
-          </Text>
-          <TextInput
-            value={formData.note}
-            onChangeText={(text) => setFormData({ ...formData, note: text })}
-            placeholder="e.g., Job Income, Groceries"
-            placeholderTextColor="#6b7280"
-            className="bg-neutral-800 rounded-xl px-4 py-3 text-white text-base"
-          />
-          {errors.note && (
-            <Text className="text-red-500 text-sm mt-1">{errors.note}</Text>
-          )}
-        </View>
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}
+        >
 
-        {/* Transaction Type */}
-        <View className="mb-6">
-          <Text className="text-sm font-medium text-neutral-300 mb-2">
-            Type
-          </Text>
-          <View className="flex-row flex-wrap">
-            {TRANSACTION_TYPES.map((type) => (
-              <TouchableOpacity
-                key={type.value}
-                onPress={() => handleTypeChange(type.value)}
-                className={`flex-row items-center px-4 py-2 rounded-xl mr-2 mb-2 ${
-                  formData.type === type.value
-                    ? "bg-green-600"
-                    : "bg-neutral-800"
-                }`}
-              >
+          {/* For Field */}
+          <View className="px-4 py-4 border-b border-neutral-800">
+            <View className="flex-row items-center">
+              <Text className="text-neutral-400 text-base w-16">For</Text>
+              <TextInput
+                value={formData.note}
+                onChangeText={(text) => setFormData({ ...formData, note: text })}
+                placeholder="What did you spend on?"
+                placeholderTextColor="#6b7280"
+                className="flex-1 text-white text-base"
+              />
+            </View>
+            {errors.note && (
+              <Text className="text-red-500 text-sm mt-1 ml-16">{errors.note}</Text>
+            )}
+          </View>
+
+          {/* Type Field */}
+          <TouchableOpacity
+            onPress={() => setShowTypeSheet(true)}
+            className="px-4 py-4 border-b border-neutral-800"
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center flex-1">
+                <Text className="text-neutral-400 text-base w-16">Type</Text>
                 <MaterialIcons
-                  name={type.icon as any}
+                  name={getTypeIcon() as any}
                   size={20}
                   color="white"
-                  style={{ marginRight: 6 }}
+                  style={{ marginRight: 8 }}
                 />
-                <Text className="text-white text-sm font-medium">
-                  {type.label}
+                <Text className="text-white text-base">{getTypeLabel()}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          {/* From Account (for Expense and Transfer) */}
+          {(formData.type === "expense" || formData.type === "transfer") && (
+            <TouchableOpacity
+              onPress={() => openAccountSheet("from")}
+              className="px-4 py-4 border-b border-neutral-800"
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <Text className="text-neutral-400 text-base w-16">From</Text>
+                  <MaterialIcons
+                    name="account-balance-wallet"
+                    size={20}
+                    color="white"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text className="text-white text-base">
+                    {getAccountLabel(formData.from_account_id)}
+                  </Text>
+                </View>
+              </View>
+              {errors.from_account_id && (
+                <Text className="text-red-500 text-sm mt-1 ml-16">
+                  {errors.from_account_id}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* To Account (for Income and Transfer) */}
+          {(formData.type === "income" || formData.type === "transfer") && (
+            <TouchableOpacity
+              onPress={() => openAccountSheet("to")}
+              className="px-4 py-4 border-b border-neutral-800"
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <Text className="text-neutral-400 text-base w-16">To</Text>
+                  <MaterialIcons
+                    name="account-balance-wallet"
+                    size={20}
+                    color="white"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text className="text-white text-base">
+                    {getAccountLabel(formData.to_account_id)}
+                  </Text>
+                </View>
+              </View>
+              {errors.to_account_id && (
+                <Text className="text-red-500 text-sm mt-1 ml-16">
+                  {errors.to_account_id}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Suggested Categories Section */}
+          {formData.type === "expense" && suggestedCategories.length > 0 && (
+            <View className="px-4 py-6">
+              <Text className="text-neutral-500 text-xs font-semibold uppercase mb-3">
+                SUGGESTED
+              </Text>
+              {suggestedCategories.map(({ category, amountLeft }) => (
+                <TouchableOpacity
+                  key={category.id}
+                  onPress={() => handleCategorySelect(category)}
+                  className="flex-row items-center justify-between mb-4"
+                >
+                  <View className="flex-row items-center flex-1">
+                    <View
+                      className="w-12 h-12 rounded-xl items-center justify-center mr-3"
+                      style={{ backgroundColor: category.background_color }}
+                    >
+                      <Text style={{ fontSize: 24 }}>{category.emoji}</Text>
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-white text-base font-medium">
+                        {category.name}
+                      </Text>
+                      <Text className="text-neutral-500 text-sm">
+                        {amountLeft > 0
+                          ? `₹${amountLeft.toFixed(2)} left`
+                          : "₹0.00 left"}
+                      </Text>
+                    </View>
+                    <View
+                      className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
+                        selectedCategory?.id === category.id
+                          ? "border-green-500 bg-green-500"
+                          : "border-neutral-600"
+                      }`}
+                    >
+                      {selectedCategory?.id === category.id && (
+                        <MaterialIcons name="check" size={16} color="black" />
+                      )}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Categories Section */}
+          {(formData.type === "expense" || formData.type === "income") && (
+            <View className="px-4 py-6">
+              <Text className="text-neutral-500 text-xs font-semibold uppercase mb-3">
+                CATEGORIES
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowCategorySheet(true)}
+                className="flex-row items-center"
+              >
+                <Text className="text-green-500 text-base font-medium">
+                  {selectedCategory ? "Change Category" : "Select Category"}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Amount */}
-        <View className="mb-6">
-          <Text className="text-sm font-medium text-neutral-300 mb-2">
-            Amount
-          </Text>
-          <TextInput
-            value={formData.amount}
-            onChangeText={(text) =>
-              setFormData({ ...formData, amount: formatAmount(text) })
-            }
-            placeholder="0.00"
-            placeholderTextColor="#6b7280"
-            keyboardType="decimal-pad"
-            className="bg-neutral-800 rounded-xl px-4 py-3 text-white text-base"
-          />
-          {errors.amount && (
-            <Text className="text-red-500 text-sm mt-1">{errors.amount}</Text>
+            </View>
           )}
-        </View>
+        </ScrollView>
+      </SafeAreaView>
 
-        {/* From Account (for Expense and Transfer) */}
-        {(formData.type === "expense" || formData.type === "transfer") && (
-          <View className="mb-6">
-            {accounts.length === 0 ? (
-              <View className="bg-neutral-800 rounded-xl px-4 py-3">
-                <Text className="text-neutral-500 text-base">
-                  No accounts available. Please add an account first.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <TouchableOpacity
-                  onPress={() => setShowFromAccounts(!showFromAccounts)}
-                  className="bg-neutral-800 rounded-xl px-4 py-3 flex-row items-center justify-between"
-                >
-                  <View className="flex-row items-center flex-1">
-                    <MaterialIcons
-                      name="account-balance"
-                      size={20}
-                      color="white"
-                      style={{ marginRight: 12 }}
-                    />
-                    <Text className="text-white text-base flex-1">
-                      {formData.from_account_id
-                        ? accounts.find((a) => a.id === formData.from_account_id)
-                            ?.name || "Select account"
-                        : "Select account"}
-                    </Text>
-                  </View>
-                  <MaterialIcons
-                    name={showFromAccounts ? "expand-less" : "expand-more"}
-                    size={24}
-                    color="white"
-                  />
-                </TouchableOpacity>
-                {showFromAccounts && (
-                  <View className="bg-neutral-800 rounded-xl mt-2">
-                    {                    accounts.map((account) => (
-                      <TouchableOpacity
-                        key={account.id}
-                        onPress={() => {
-                          setFormData({
-                            ...formData,
-                            from_account_id: account.id,
-                          });
-                          setShowFromAccounts(false);
-                        }}
-                        className={`px-4 py-3 border-b border-neutral-700 ${
-                          formData.from_account_id === account.id
-                            ? "bg-green-600/20"
-                            : ""
-                        }`}
-                      >
-                        <View className="flex-row items-center">
-                          <MaterialIcons
-                            name="account-balance"
-                            size={20}
-                            color="white"
-                            style={{ marginRight: 12 }}
-                          />
-                          <Text className="text-white text-base flex-1">
-                            {account.name}
-                          </Text>
-                          {formData.from_account_id === account.id && (
-                            <MaterialIcons
-                              name="check-circle"
-                              size={20}
-                              color="#22c55e"
-                            />
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </>
-            )}
-            {errors.from_account_id && (
-              <Text className="text-red-500 text-sm mt-1">
-                {errors.from_account_id}
-              </Text>
-            )}
-          </View>
-        )}
+      {/* Transaction Type Sheet */}
+      <TransactionTypeSheet
+        visible={showTypeSheet}
+        selectedType={formData.type}
+        onClose={() => setShowTypeSheet(false)}
+        onSelect={handleTypeChange}
+      />
 
-        {/* Category Selection (for Expense and Income) */}
-        {(formData.type === "expense" || formData.type === "income") && (
-          <View className="mb-6">
-            <Text className="text-sm font-medium text-neutral-300 mb-2">
-              Category (Optional)
-            </Text>
-            <TouchableOpacity
-              onPress={() => setShowCategorySheet(true)}
-              className="bg-neutral-800 rounded-xl px-4 py-3 flex-row items-center justify-between"
-            >
-              <View className="flex-row items-center flex-1">
-                {selectedCategory ? (
-                  <>
-                    <View
-                      className="w-10 h-10 rounded-lg items-center justify-center mr-3"
-                      style={{ backgroundColor: selectedCategory.background_color }}
-                    >
-                      <Text style={{ fontSize: 20 }}>{selectedCategory.emoji}</Text>
-                    </View>
-                    <Text className="text-white text-base flex-1">
-                      {selectedCategory.name}
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <MaterialIcons
-                      name="category"
-                      size={20}
-                      color="white"
-                      style={{ marginRight: 12 }}
-                    />
-                    <Text className="text-white text-base flex-1">
-                      Select category
-                    </Text>
-                  </>
-                )}
-              </View>
-              <MaterialIcons name="chevron-right" size={24} color="white" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* To Account (for Income and Transfer) */}
-        {(formData.type === "income" || formData.type === "transfer") && (
-          <View className="mb-6">
-            <Text className="text-sm font-medium text-neutral-300 mb-2">
-              To
-            </Text>
-            {accounts.length === 0 ? (
-              <View className="bg-neutral-800 rounded-xl px-4 py-3">
-                <Text className="text-neutral-500 text-base">
-                  No accounts available. Please add an account first.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <TouchableOpacity
-                  onPress={() => setShowToAccounts(!showToAccounts)}
-                  className="bg-neutral-800 rounded-xl px-4 py-3 flex-row items-center justify-between"
-                >
-                  <View className="flex-row items-center flex-1">
-                    <MaterialIcons
-                      name="account-balance"
-                      size={20}
-                      color="white"
-                      style={{ marginRight: 12 }}
-                    />
-                    <Text className="text-white text-base flex-1">
-                      {formData.to_account_id
-                        ? accounts.find((a) => a.id === formData.to_account_id)
-                            ?.name || "Select account"
-                        : "Select account"}
-                    </Text>
-                  </View>
-                  <MaterialIcons
-                    name={showToAccounts ? "expand-less" : "expand-more"}
-                    size={24}
-                    color="white"
-                  />
-                </TouchableOpacity>
-                {showToAccounts && (
-                  <View className="bg-neutral-800 rounded-xl mt-2">
-                    {accounts
-                      .filter(
-                        (account) =>
-                          formData.type !== "transfer" ||
-                          account.id !== formData.from_account_id
-                      )
-                      .map((account) => (
-                        <TouchableOpacity
-                          key={account.id}
-                          onPress={() => {
-                            setFormData({
-                              ...formData,
-                              to_account_id: account.id,
-                            });
-                            setShowToAccounts(false);
-                          }}
-                          className={`px-4 py-3 border-b border-neutral-700 ${
-                            formData.to_account_id === account.id
-                              ? "bg-green-600/20"
-                              : ""
-                          }`}
-                        >
-                          <View className="flex-row items-center">
-                            <MaterialIcons
-                              name="account-balance"
-                              size={20}
-                              color="white"
-                              style={{ marginRight: 12 }}
-                            />
-                            <Text className="text-white text-base flex-1">
-                              {account.name}
-                            </Text>
-                            {formData.to_account_id === account.id && (
-                              <MaterialIcons
-                                name="check-circle"
-                                size={20}
-                                color="#22c55e"
-                              />
-                            )}
-                          </View>
-                        </TouchableOpacity>
-                      ))}
-                  </View>
-                )}
-              </>
-            )}
-            {errors.to_account_id && (
-              <Text className="text-red-500 text-sm mt-1">
-                {errors.to_account_id}
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Submit Button */}
-        <View className="mt-4">
-          <PrimaryButton
-            label="Add Transaction"
-            onPress={handleSubmit}
-            loading={submitting}
-          />
-        </View>
-      </ScrollView>
-
-      {/* Category Select Sheet */}
-      <CategorySelectSheet
-        visible={showCategorySheet}
-        selectedCategoryId={formData.category_id}
+      {/* Account Select Sheet */}
+      <AccountSelectSheet
+        visible={showAccountSheet}
+        accounts={accounts}
         selectedAccountId={
-          formData.type === "expense" 
-            ? formData.from_account_id 
-            : formData.type === "income" 
-            ? formData.to_account_id 
+          accountSheetMode === "from"
+            ? formData.from_account_id
+            : formData.to_account_id
+        }
+        title={accountSheetMode === "from" ? "From Account" : "To Account"}
+        excludeAccountId={
+          formData.type === "transfer" && accountSheetMode === "to"
+            ? formData.from_account_id
             : null
         }
-        onClose={() => setShowCategorySheet(false)}
-        onSelect={handleCategorySelect}
-        transactionType={formData.type}
+        onClose={() => setShowAccountSheet(false)}
+        onSelect={handleAccountSelect}
       />
-    </SafeAreaView>
+
+      {/* Category Select Sheet */}
+      {(formData.type === "expense" ||
+        formData.type === "income" ||
+        formData.type === "transfer") && (
+        <CategorySelectSheet
+          visible={showCategorySheet}
+          selectedCategoryId={formData.category_id}
+          selectedAccountId={
+            formData.type === "expense"
+              ? formData.from_account_id
+              : formData.type === "income"
+              ? formData.to_account_id
+              : null
+          }
+          onClose={() => setShowCategorySheet(false)}
+          onSelect={handleCategorySelect}
+          transactionType={formData.type}
+        />
+      )}
+    </>
   );
 }
 
