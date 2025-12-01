@@ -53,19 +53,19 @@ const darkColors = {
   // Domain-specific colors
   transaction: {
     expense: {
-      badgeBg: "#7f1d1d",
+      badgeBg: "#703737",
       badgeIcon: "#fca5a5",
-      amountClass: "text-red-400",
+      amountClass: "text-[#fca5a5]",
     },
     income: {
       badgeBg: "#064e3b",
       badgeIcon: "#86efac",
-      amountClass: "text-green-400",
+      amountClass: "text-[#86efac]",
     },
     transfer: {
       badgeBg: "#1e3a8a",
       badgeIcon: "#bfdbfe",
-      amountClass: "text-neutral-300",
+      amountClass: "text-neutral-200",
     },
     goal: {
       badgeBg: "#4c1d95",
@@ -75,7 +75,7 @@ const darkColors = {
     goalWithdraw: {
       badgeBg: "#14532d",
       badgeIcon: "#86efac",
-      amountClass: "text-green-400",
+      amountClass: "text-[#86efac]",
     },
   },
 

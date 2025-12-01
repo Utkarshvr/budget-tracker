@@ -23,8 +23,7 @@ export function TransactionItem({
   TRANSACTION_TYPE_META,
   onPress,
 }: TransactionItemProps) {
-  const typeMeta =
-    TRANSACTION_TYPE_META[transaction.type] || DEFAULT_TYPE_META;
+  const typeMeta = TRANSACTION_TYPE_META[transaction.type] || DEFAULT_TYPE_META;
   const categoryEmoji = transaction.category?.emoji || "💸";
   const categoryBg =
     transaction.category?.background_color || colors.background.subtle;
@@ -52,7 +51,7 @@ export function TransactionItem({
             >
               <Text className="text-2xl">{categoryEmoji}</Text>
             </View>
-            <View
+            {/* <View
               className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full items-center justify-center"
               style={{ backgroundColor: typeMeta.badgeBg }}
             >
@@ -61,7 +60,7 @@ export function TransactionItem({
                 size={12}
                 color={typeMeta.badgeIconColor}
               />
-            </View>
+            </View> */}
           </View>
 
           <View className="flex-1 justify-center">
@@ -86,7 +85,17 @@ export function TransactionItem({
                   className={`text-lg font-semibold ${typeMeta.amountColor}`}
                 >
                   {typeMeta.amountPrefix}
-                  {formatAmount(transaction.amount, transaction.currency)}
+                  {formatAmount(transaction.amount, transaction.currency)}{" "}
+                  {/* <View
+                    className="w-5 h-5 rounded-full items-center justify-center"
+                    style={{ backgroundColor: typeMeta.badgeBg }}
+                  >
+                    <MaterialIcons
+                      name={typeMeta.icon}
+                      size={12}
+                      color={typeMeta.badgeIconColor}
+                    />
+                  </View> */}
                 </Text>
                 {accountLabel && (
                   <View className="mt-1.5">
@@ -112,4 +121,3 @@ export function TransactionItem({
     </View>
   );
 }
-
