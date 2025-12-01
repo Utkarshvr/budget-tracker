@@ -32,7 +32,7 @@ export function TransactionTypeSheet({
   onSelect,
 }: TransactionTypeSheetProps) {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["40%"], []);
+  const snapPoints = useMemo(() => ["60%"], []);
 
   useEffect(() => {
     if (visible) {

@@ -36,7 +36,7 @@ export function CategorySelectSheet({
   transactionType,
 }: CategorySelectSheetProps) {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["60%", "90%"], []);
+  const snapPoints = useMemo(() => ["90%"], []);
   const { session } = useSupabaseSession();
   const [categories, setCategories] = useState<Category[]>([]);
   const [reservations, setReservations] = useState<CategoryReservation[]>([]);
