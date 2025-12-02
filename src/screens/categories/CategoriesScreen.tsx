@@ -13,6 +13,8 @@ import { CategoriesTabs } from "./components/CategoriesTabs";
 import { CategoriesEmptyState } from "./components/CategoriesEmptyState";
 import { CategoryList } from "./components/CategoryList";
 import { FullScreenLoader } from "./components/FullScreenLoader";
+import { useMemo } from "react";
+import { getTotalReserved as getTotalReservedForAccount } from "@/screens/accounts/utils/accountHelpers";
 
 export default function CategoriesScreen() {
   const { session } = useSupabaseSession();
@@ -38,6 +40,18 @@ export default function CategoriesScreen() {
   const [expandedCategories, setExpandedCategories] = useState<
     Record<string, boolean>
   >({});
+
+  const accountUnreserved = useMemo(() => {
+    const map: Record<string, number> = {};
+    accounts.forEach((account) => {
+      const totalReservedForAccount = getTotalReservedForAccount(
+        account.id,
+        reservations
+      );
+      map[account.id] = Math.max(account.balance - totalReservedForAccount, 0);
+    });
+    return map;
+  }, [accounts, reservations]);
 
   const handleAddCategory = () => {
     setEditingCategory(null);
@@ -203,6 +217,7 @@ export default function CategoriesScreen() {
         reservations={getReservationsForCategory(
           selectedCategoryForReservation?.id || ""
         )}
+        accountUnreserved={accountUnreserved}
         onClose={() => {
           setReservationSheetVisible(false);
           setSelectedCategoryForReservation(null);

@@ -115,47 +115,19 @@ export function CategoryDetails({
       </View>
 
       <View className="flex-row flex-wrap mt-3">
-        {multiAccount ? (
-          <TouchableOpacity
-            className="flex-1 flex-row items-center justify-center rounded-xl bg-primary-soft border border-primary-border py-2"
-            onPress={onManageReservations}
-          >
-            <MaterialIcons name="savings" size={16} color={theme.colors.primary.DEFAULT} />
-            <Text className="text-primary text-sm font-semibold ml-2">
-              Manage Funds
-            </Text>
-          </TouchableOpacity>
-        ) : (
-          <>
-            <TouchableOpacity
-              className="flex-1 flex-row items-center justify-center rounded-xl bg-muted py-2 mr-2"
-              onPress={onManageReservations}
-            >
-              <MaterialIcons name="north-east" size={16} color={theme.colors.foreground} />
-              <Text className="text-foreground text-sm font-semibold ml-2">
-                Add Money
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="flex-1 flex-row items-center justify-center rounded-xl bg-muted py-2"
-              onPress={onManageReservations}
-            >
-              <MaterialIcons name="south-west" size={16} color={theme.colors.foreground} />
-              <Text className="text-foreground text-sm font-semibold ml-2">
-                Withdraw
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              className="w-full flex-row items-center justify-center rounded-xl border border-border py-2 mt-2"
-              onPress={onManageReservations}
-            >
-              <MaterialIcons name="edit" size={16} color={theme.colors.foreground} />
-              <Text className="text-foreground text-sm font-semibold ml-2">
-                Manage Fund
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
+        <TouchableOpacity
+          className="flex-1 flex-row items-center justify-center rounded-xl bg-primary-soft border border-primary-border py-2"
+          onPress={onManageReservations}
+        >
+          <MaterialIcons
+            name="savings"
+            size={16}
+            color={theme.colors.primary.DEFAULT}
+          />
+          <Text className="text-primary text-sm font-semibold ml-2">
+            Manage Funds
+          </Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

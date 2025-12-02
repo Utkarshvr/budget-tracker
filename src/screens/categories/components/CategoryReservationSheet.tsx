@@ -22,6 +22,7 @@ type CategoryReservationSheetProps = {
   category: Category | null;
   accounts: Account[];
   reservations: CategoryReservation[];
+  accountUnreserved: Record<string, number>;
   onClose: () => void;
   onUpdated: () => void;
 };
@@ -39,6 +40,7 @@ export function CategoryReservationSheet({
   category,
   accounts,
   reservations,
+  accountUnreserved,
   onClose,
   onUpdated,
 }: CategoryReservationSheetProps) {
@@ -104,6 +106,17 @@ export function CategoryReservationSheet({
     }
 
     const amountSmallest = Math.round(amountNum * 100);
+
+    // Prevent allocating more than the account's unreserved balance
+    const unreservedForAccount = accountUnreserved[selectedAccountId] || 0;
+    if (action === "add" && amountSmallest > unreservedForAccount) {
+      Alert.alert(
+        "Insufficient unreserved funds",
+        "You don't have enough unreserved money in this account to reserve that amount."
+      );
+      return;
+    }
+
     const amountDelta = action === "add" ? amountSmallest : -amountSmallest;
 
     setSubmitting(true);
