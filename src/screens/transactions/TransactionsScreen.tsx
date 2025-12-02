@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
-import { ScrollView, RefreshControl, View, Alert } from "react-native";
+import { ScrollView, RefreshControl, View, Alert, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { useThemeColors } from "@/constants/theme";
 import { useTransactionsData } from "./hooks/useTransactionsData";
@@ -14,13 +15,12 @@ import { EmptyState } from "./components/EmptyState";
 import { FullScreenLoader } from "./components/FullScreenLoader";
 import { TransactionActionSheet } from "./components/TransactionActionSheet";
 import { Transaction } from "@/types/transaction";
-import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import TransactionFormScreen from "./TransactionFormScreen";
 
 export default function TransactionsScreen() {
   const colors = useThemeColors();
   const typeMeta = buildTypeMeta(colors);
-  const router = useRouter();
 
   const { session } = useSupabaseSession();
   const {
@@ -45,6 +45,8 @@ export default function TransactionsScreen() {
   } | null>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const handleFilterTypeChange = useCallback((type: DateRangeFilter) => {
     setFilterType(type);
@@ -78,12 +80,10 @@ export default function TransactionsScreen() {
   }, []);
 
   const handleEditTransaction = useCallback((transaction: Transaction) => {
-    // Navigate to edit screen - you may need to adjust this based on your routing
-    router.push({
-      pathname: "/transactions/add",
-      params: { transactionId: transaction.id },
-    });
-  }, [router]);
+    setEditingTransaction(transaction);
+    setShowActionSheet(false);
+    setShowTransactionForm(true);
+  }, []);
 
   const handleDeleteTransaction = useCallback((transaction: Transaction) => {
     Alert.alert(
@@ -189,6 +189,32 @@ export default function TransactionsScreen() {
         onEdit={handleEditTransaction}
         onDelete={handleDeleteTransaction}
       />
+
+      {/* Transaction Form Screen (for editing) */}
+      <Modal
+        visible={showTransactionForm}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => {
+          setShowTransactionForm(false);
+          setEditingTransaction(null);
+        }}
+      >
+        <BottomSheetModalProvider>
+          <TransactionFormScreen
+            transaction={editingTransaction}
+            onClose={() => {
+              setShowTransactionForm(false);
+              setEditingTransaction(null);
+            }}
+            onSuccess={() => {
+              setShowTransactionForm(false);
+              setEditingTransaction(null);
+              handleRefresh();
+            }}
+          />
+        </BottomSheetModalProvider>
+      </Modal>
     </SafeAreaView>
   );
 }

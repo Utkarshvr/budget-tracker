@@ -31,7 +31,7 @@ export function TransactionGroup({
       {/* Date Header */}
       <View className="px-4 py-2">
         <Text
-          className="text-sm font-semibold"
+          className="text-base font-bold text-left"
           style={{ color: colors.muted.foreground }}
         >
           {formatDateHeader(group.date)}

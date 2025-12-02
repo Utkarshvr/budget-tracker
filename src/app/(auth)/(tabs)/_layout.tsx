@@ -4,7 +4,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AmountInputScreen from "@/screens/transactions/AmountInputScreen";
-import AddTransactionScreen from "@/screens/transactions/AddTransactionScreen";
+import TransactionFormScreen from "@/screens/transactions/TransactionFormScreen";
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
@@ -95,7 +95,7 @@ export default function TabLayout() {
       {/* Add Transaction Screen */}
       {showAddTransaction && (
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
-          <AddTransactionScreen
+          <TransactionFormScreen
             initialAmount={transactionAmount}
             onClose={() => setShowAddTransaction(false)}
             onSuccess={() => {

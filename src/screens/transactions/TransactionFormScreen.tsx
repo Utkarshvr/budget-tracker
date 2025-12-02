@@ -10,28 +10,30 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { Account } from "@/types/account";
-import { TransactionFormData, TransactionType } from "@/types/transaction";
+import { Transaction, TransactionFormData, TransactionType } from "@/types/transaction";
 import { Category, CategoryReservation } from "@/types/category";
 import { TransactionTypeSheet } from "./components/TransactionTypeSheet";
 import { AccountSelectSheet } from "./components/AccountSelectSheet";
 
-type AddTransactionScreenProps = {
-  initialAmount: string;
+type TransactionFormScreenProps = {
+  initialAmount?: string;
+  transaction?: Transaction | null; // For editing mode
   onClose: () => void;
   onSuccess: () => void;
 };
 
-export default function AddTransactionScreen({
-  initialAmount,
+export default function TransactionFormScreen({
+  initialAmount = "0.00",
+  transaction = null,
   onClose,
   onSuccess,
-}: AddTransactionScreenProps) {
+}: TransactionFormScreenProps) {
   const { session } = useSupabaseSession();
   const insets = useSafeAreaInsets();
+  const isEditing = !!transaction;
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reservations, setReservations] = useState<CategoryReservation[]>([]);
@@ -42,14 +44,29 @@ export default function AddTransactionScreen({
   const [showAccountSheet, setShowAccountSheet] = useState(false);
   const [accountSheetMode, setAccountSheetMode] = useState<"from" | "to">("from");
 
-  const [formData, setFormData] = useState<TransactionFormData>({
-    note: "",
-    type: "expense",
-    amount: initialAmount,
-    from_account_id: null,
-    to_account_id: null,
-    category_id: null,
-  });
+  // Initialize form data based on whether we're editing or adding
+  const getInitialFormData = (): TransactionFormData => {
+    if (transaction) {
+      return {
+        note: transaction.note,
+        type: transaction.type,
+        amount: (transaction.amount / 100).toFixed(2),
+        from_account_id: transaction.from_account_id,
+        to_account_id: transaction.to_account_id,
+        category_id: transaction.category_id,
+      };
+    }
+    return {
+      note: "",
+      type: "expense",
+      amount: initialAmount,
+      from_account_id: null,
+      to_account_id: null,
+      category_id: null,
+    };
+  };
+
+  const [formData, setFormData] = useState<TransactionFormData>(getInitialFormData());
 
   const [errors, setErrors] = useState<
     Partial<Record<keyof TransactionFormData, string>>
@@ -63,10 +80,26 @@ export default function AddTransactionScreen({
     }
   }, [session]);
 
-  // Update amount when initialAmount changes
+  // Initialize form when transaction changes (for editing)
   useEffect(() => {
-    setFormData((prev) => ({ ...prev, amount: initialAmount }));
-  }, [initialAmount]);
+    if (transaction) {
+      setFormData({
+        note: transaction.note,
+        type: transaction.type,
+        amount: (transaction.amount / 100).toFixed(2),
+        from_account_id: transaction.from_account_id,
+        to_account_id: transaction.to_account_id,
+        category_id: transaction.category_id,
+      });
+    }
+  }, [transaction?.id]);
+
+  // Update amount when initialAmount changes (for adding mode)
+  useEffect(() => {
+    if (!isEditing) {
+      setFormData((prev) => ({ ...prev, amount: initialAmount }));
+    }
+  }, [initialAmount, isEditing]);
 
   // Update selectedCategory when category_id changes
   useEffect(() => {
@@ -161,8 +194,14 @@ export default function AddTransactionScreen({
         if (reservation) {
           const amountNum = parseFloat(formData.amount || "0");
           const amountSmallest = Math.round(amountNum * 100);
+          
+          // For editing, we need to account for the old amount being added back
+          const oldAmount = isEditing && transaction?.type === "expense" 
+            ? transaction.amount 
+            : 0;
+          const availableAmount = reservation.reserved_amount + oldAmount;
 
-          if (amountSmallest > reservation.reserved_amount) {
+          if (amountSmallest > availableAmount) {
             newErrors.amount = "Amount exceeds reserved balance for this category";
           }
         }
@@ -205,76 +244,172 @@ export default function AddTransactionScreen({
       );
 
       // Get currency from the account
-      let currency = "INR"; // default
+      let currency = transaction?.currency || "INR"; // Use existing currency when editing
       if (formData.type === "expense" && formData.from_account_id) {
         const account = accounts.find((a) => a.id === formData.from_account_id);
-        currency = account?.currency || "INR";
+        currency = account?.currency || currency;
       } else if (formData.type === "income" && formData.to_account_id) {
         const account = accounts.find((a) => a.id === formData.to_account_id);
-        currency = account?.currency || "INR";
+        currency = account?.currency || currency;
       } else if (formData.type === "transfer" && formData.from_account_id) {
         const account = accounts.find((a) => a.id === formData.from_account_id);
-        currency = account?.currency || "INR";
+        currency = account?.currency || currency;
       }
 
-      // Insert transaction into Supabase
-      const { data, error } = await supabase
-        .from("transactions")
-        .insert({
-          user_id: session.user.id,
-          note: formData.note.trim(),
-          type: formData.type,
-          amount: amountInSmallestUnit,
-          from_account_id: formData.from_account_id,
-          to_account_id: formData.to_account_id,
-          category_id: formData.category_id,
-          currency: currency,
-        })
-        .select()
-        .single();
+      if (isEditing && transaction) {
+        // UPDATE MODE: Update existing transaction
+        const oldAmount = transaction.amount;
+        const oldCategoryId = transaction.category_id;
+        const oldFromAccountId = transaction.from_account_id;
 
-      if (error) throw error;
+        // Update transaction in Supabase
+        const { data, error } = await supabase
+          .from("transactions")
+          .update({
+            note: formData.note.trim(),
+            type: formData.type,
+            amount: amountInSmallestUnit,
+            from_account_id: formData.from_account_id,
+            to_account_id: formData.to_account_id,
+            category_id: formData.category_id,
+            currency: currency,
+          })
+          .eq("id", transaction.id)
+          .select()
+          .single();
 
-      // If expense transaction with a reserved category, deduct from reservation
-      if (
-        formData.type === "expense" &&
-        selectedCategory &&
-        formData.from_account_id
-      ) {
-        const reservation = reservations.find(
-          (r) =>
-            r.category_id === selectedCategory.id &&
-            r.account_id === formData.from_account_id
-        );
+        if (error) throw error;
 
-        if (reservation) {
-          const { error: reservationError } = await supabase.rpc(
-            "adjust_category_reservation",
-            {
-              p_category_id: selectedCategory.id,
-              p_account_id: formData.from_account_id,
-              p_amount_delta: -amountInSmallestUnit,
-            }
+        // Handle reservation adjustments for expense transactions
+        if (transaction.type === "expense" && oldCategoryId && oldFromAccountId) {
+          // Add back the old amount to reservation
+          const oldReservation = reservations.find(
+            (r) => r.category_id === oldCategoryId && r.account_id === oldFromAccountId
           );
 
-          if (reservationError) {
-            // Rollback transaction
-            await supabase.from("transactions").delete().eq("id", data.id);
-            throw reservationError;
+          if (oldReservation) {
+            await supabase.rpc("adjust_category_reservation", {
+              p_category_id: oldCategoryId,
+              p_account_id: oldFromAccountId,
+              p_amount_delta: oldAmount, // Add back the old amount
+            });
           }
         }
-      }
-      Alert.alert("Success", "Transaction added successfully", [
-        {
-          text: "OK",
-          onPress: () => {
-            onSuccess();
-            onClose();
+
+        // Deduct the new amount if it's an expense with a category
+        if (
+          formData.type === "expense" &&
+          selectedCategory &&
+          formData.from_account_id
+        ) {
+          const reservation = reservations.find(
+            (r) =>
+              r.category_id === selectedCategory.id &&
+              r.account_id === formData.from_account_id
+          );
+
+          if (reservation) {
+            const { error: reservationError } = await supabase.rpc(
+              "adjust_category_reservation",
+              {
+                p_category_id: selectedCategory.id,
+                p_account_id: formData.from_account_id,
+                p_amount_delta: -amountInSmallestUnit,
+              }
+            );
+
+            if (reservationError) {
+              // Rollback transaction update
+              await supabase
+                .from("transactions")
+                .update({
+                  note: transaction.note,
+                  type: transaction.type,
+                  amount: transaction.amount,
+                  from_account_id: transaction.from_account_id,
+                  to_account_id: transaction.to_account_id,
+                  category_id: transaction.category_id,
+                  currency: transaction.currency,
+                })
+                .eq("id", transaction.id);
+              throw reservationError;
+            }
+          }
+        }
+
+        Alert.alert("Success", "Transaction updated successfully", [
+          {
+            text: "OK",
+            onPress: () => {
+              onSuccess();
+              onClose();
+            },
           },
-        },
-      ]);
+        ]);
+      } else {
+        // INSERT MODE: Create new transaction
+        const { data, error } = await supabase
+          .from("transactions")
+          .insert({
+            user_id: session.user.id,
+            note: formData.note.trim(),
+            type: formData.type,
+            amount: amountInSmallestUnit,
+            from_account_id: formData.from_account_id,
+            to_account_id: formData.to_account_id,
+            category_id: formData.category_id,
+            currency: currency,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // If expense transaction with a reserved category, deduct from reservation
+        if (
+          formData.type === "expense" &&
+          selectedCategory &&
+          formData.from_account_id
+        ) {
+          const reservation = reservations.find(
+            (r) =>
+              r.category_id === selectedCategory.id &&
+              r.account_id === formData.from_account_id
+          );
+
+          if (reservation) {
+            const { error: reservationError } = await supabase.rpc(
+              "adjust_category_reservation",
+              {
+                p_category_id: selectedCategory.id,
+                p_account_id: formData.from_account_id,
+                p_amount_delta: -amountInSmallestUnit,
+              }
+            );
+
+            if (reservationError) {
+              // Rollback transaction
+              await supabase.from("transactions").delete().eq("id", data.id);
+              throw reservationError;
+            }
+          }
+        }
+
+        Alert.alert("Success", "Transaction added successfully", [
+          {
+            text: "OK",
+            onPress: () => {
+              onSuccess();
+              onClose();
+            },
+          },
+        ]);
+      }
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to add transaction");
+      Alert.alert(
+        "Error",
+        error.message || `Failed to ${isEditing ? "update" : "add"} transaction`
+      );
     } finally {
       setSubmitting(false);
     }
@@ -372,7 +507,14 @@ export default function AddTransactionScreen({
           // Only set amountLeft if reservation exists (even if amount is 0)
           // If no reservation exists, keep it null (don't show "left" text)
           if (reservation) {
-            amountLeft = reservation.reserved_amount / 100;
+            // For editing, add back the old amount if it's the same category/account
+            const oldAmount = isEditing && 
+              transaction?.type === "expense" &&
+              transaction.category_id === category.id &&
+              transaction.from_account_id === formData.from_account_id
+              ? transaction.amount
+              : 0;
+            amountLeft = (reservation.reserved_amount + oldAmount) / 100;
           }
         }
 
@@ -381,7 +523,7 @@ export default function AddTransactionScreen({
           amountLeft,
         };
       });
-  }, [categories, reservations, formData.type, formData.from_account_id]);
+  }, [categories, reservations, formData.type, formData.from_account_id, isEditing, transaction]);
 
   if (loadingAccounts) {
     return (
@@ -400,7 +542,7 @@ export default function AddTransactionScreen({
             <MaterialIcons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text className="text-lg font-semibold text-white">
-            ₹{formData.amount}
+            {isEditing ? "Edit transaction" : `₹${formData.amount}`}
           </Text>
           <View style={{ width: 24 }} />
         </View>
@@ -410,6 +552,28 @@ export default function AddTransactionScreen({
           contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
         >
+
+          {/* Amount Field (only for editing) */}
+          {isEditing && (
+            <View className="px-4 py-4 border-b border-neutral-800">
+              <View className="flex-row items-center">
+                <Text className="text-neutral-400 text-base w-16">Amount</Text>
+                <TextInput
+                  value={formData.amount}
+                  onChangeText={(text) => setFormData({ ...formData, amount: text })}
+                  placeholder="0.00"
+                  placeholderTextColor="#6b7280"
+                  keyboardType="decimal-pad"
+                  className="flex-1 text-white text-base"
+                />
+              </View>
+              {errors.amount && (
+                <Text className="text-red-500 text-sm mt-1 ml-16">
+                  {errors.amount}
+                </Text>
+              )}
+            </View>
+          )}
 
           {/* For Field */}
           <View className="px-4 py-4 border-b border-neutral-800">
@@ -561,7 +725,7 @@ export default function AddTransactionScreen({
             )}
         </ScrollView>
 
-        {/* Add Transaction Button - Fixed at Bottom */}
+        {/* Add/Update Transaction Button - Fixed at Bottom */}
         <View
           className="absolute bottom-0 left-0 right-0 bg-neutral-900 px-4 pt-2"
           style={{ paddingBottom: Math.max(insets.bottom, 16) }}
@@ -575,7 +739,7 @@ export default function AddTransactionScreen({
               <ActivityIndicator size="small" color="white" />
             ) : (
               <Text className="text-primary-foreground text-base font-bold">
-                Add Transaction
+                {isEditing ? "Update Transaction" : "Add Transaction"}
               </Text>
             )}
           </TouchableOpacity>
