@@ -1,4 +1,4 @@
-import { Tabs } from "expo-router";
+import { Tabs, usePathname } from "expo-router";
 import {
   View,
   TouchableOpacity,
@@ -17,6 +17,8 @@ export default function TabLayout() {
   const [showAmountInput, setShowAmountInput] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [transactionAmount, setTransactionAmount] = useState("0.00");
+  const pathname = usePathname();
+  const isSettingsTab = pathname?.includes("/settings");
 
   return (
     <View style={{ flex: 1 }}>
@@ -84,20 +86,24 @@ export default function TabLayout() {
         />
       </Tabs>
 
-      <TouchableOpacity
-        style={[
-          styles.fab,
-          {
-            bottom: 60 + insets.bottom + 20, // Above the tab bar with safe area
-          },
-        ]}
-        className="flex-row items-center justify-center gap-2 px-4 py-2 rounded-md bg-primary-strong"
-        onPress={() => setShowAmountInput(true)}
-        activeOpacity={0.8}
-      >
-        <MaterialIcons name="add" size={28} color="white" />
-        <Text className="text-white text-base font-semibold">Transaction</Text>
-      </TouchableOpacity>
+      {!isSettingsTab && (
+        <TouchableOpacity
+          style={[
+            styles.fab,
+            {
+              bottom: 60 + insets.bottom + 20, // Above the tab bar with safe area
+            },
+          ]}
+          className="flex-row items-center justify-center gap-2 px-4 py-2 rounded-md bg-primary-strong"
+          onPress={() => setShowAmountInput(true)}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="add" size={28} color="white" />
+          <Text className="text-white text-base font-semibold">
+            Transaction
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Amount Input Screen */}
       <AmountInputScreen
