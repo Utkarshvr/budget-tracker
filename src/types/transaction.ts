@@ -28,5 +28,6 @@ export interface TransactionFormData {
   from_account_id: string | null;
   to_account_id: string | null;
   category_id: string | null;
+  date: string; // ISO string for the transaction date (date-only or datetime)
 }
 

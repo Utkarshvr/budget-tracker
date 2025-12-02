@@ -54,6 +54,7 @@ export default function TransactionFormScreen({
         from_account_id: transaction.from_account_id,
         to_account_id: transaction.to_account_id,
         category_id: transaction.category_id,
+        date: transaction.created_at,
       };
     }
     return {
@@ -63,6 +64,7 @@ export default function TransactionFormScreen({
       from_account_id: null,
       to_account_id: null,
       category_id: null,
+      date: new Date().toISOString(),
     };
   };
 
@@ -90,6 +92,7 @@ export default function TransactionFormScreen({
         from_account_id: transaction.from_account_id,
         to_account_id: transaction.to_account_id,
         category_id: transaction.category_id,
+        date: transaction.created_at,
       });
     }
   }, [transaction?.id]);
@@ -100,6 +103,19 @@ export default function TransactionFormScreen({
       setFormData((prev) => ({ ...prev, amount: initialAmount }));
     }
   }, [initialAmount, isEditing]);
+
+  const selectedDate = useMemo(
+    () => (formData.date ? new Date(formData.date) : new Date()),
+    [formData.date]
+  );
+
+  const formatDisplayDate = (date: Date) => {
+    return date.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   // Update selectedCategory when category_id changes
   useEffect(() => {
@@ -273,6 +289,7 @@ export default function TransactionFormScreen({
             to_account_id: formData.to_account_id,
             category_id: formData.category_id,
             currency: currency,
+            created_at: formData.date || transaction.created_at,
           })
           .eq("id", transaction.id)
           .select()
@@ -359,6 +376,7 @@ export default function TransactionFormScreen({
             to_account_id: formData.to_account_id,
             category_id: formData.category_id,
             currency: currency,
+            created_at: formData.date || new Date().toISOString(),
           })
           .select()
           .single();
@@ -667,6 +685,16 @@ export default function TransactionFormScreen({
             </TouchableOpacity>
           )}
 
+          {/* Date Field (read-only for now; uses selectedDate from formData.date) */}
+          <View className="px-4 py-4 border-b border-neutral-800">
+            <View className="flex-row items-center flex-1">
+              <Text className="text-neutral-400 text-base w-16">Date</Text>
+              <Text className="text-white text-base">
+                {formatDisplayDate(selectedDate)}
+              </Text>
+            </View>
+          </View>
+
           {/* Categories List (Income / Expense) */}
           {(formData.type === "expense" || formData.type === "income") &&
             displayCategories.length > 0 && (
@@ -723,6 +751,7 @@ export default function TransactionFormScreen({
                 ))}
               </View>
             )}
+
         </ScrollView>
 
         {/* Add/Update Transaction Button - Fixed at Bottom */}
