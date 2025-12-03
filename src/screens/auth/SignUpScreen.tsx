@@ -89,6 +89,7 @@ export default function SignUpScreen() {
           label="Password"
           value={password}
           secureTextEntry
+          autoCapitalize="none"
           onChangeText={setPassword}
           placeholder="Create a password"
         />

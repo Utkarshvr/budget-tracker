@@ -5,7 +5,7 @@
     "owner": "utkarshh",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/brand/icon-nobg.png",
+    "icon": "./src/assets/brand/icon.png",
     "scheme": "budgetwise",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -16,21 +16,21 @@
       "package": "com.utkarshh.budgetwise",
       "adaptiveIcon": {
         "backgroundColor": "#000000",
-        "foregroundImage": "./src/assets/brand/icon-nobg.png"
+        "foregroundImage": "./src/assets/brand/icon.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./src/assets/brand/icon-nobg.png"
+      "favicon": "./src/assets/brand/icon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./src/assets/brand/icon-nobg.png",
+          "image": "./src/assets/brand/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000000",

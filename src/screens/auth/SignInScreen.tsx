@@ -75,6 +75,7 @@ export default function SignInScreen() {
           label="Password"
           value={password}
           secureTextEntry
+          autoCapitalize="none"
           onChangeText={setPassword}
           placeholder="••••••••"
         />
