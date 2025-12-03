@@ -11,6 +11,7 @@ type AccountsSectionProps = {
   showTypeMeta: boolean;
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;
+  onShowActions: (account: Account) => void;
   expandedReservations: Record<string, boolean>;
   onToggleReservations: (accountId: string) => void;
 };
@@ -23,6 +24,7 @@ export function AccountsSection({
   showTypeMeta,
   onEdit,
   onDelete,
+  onShowActions,
   expandedReservations,
   onToggleReservations,
 }: AccountsSectionProps) {
@@ -42,6 +44,7 @@ export function AccountsSection({
           showTypeMeta={showTypeMeta}
           onEdit={onEdit}
           onDelete={onDelete}
+          onShowActions={onShowActions}
           expanded={expandedReservations[account.id] || false}
           onToggleExpanded={() => onToggleReservations(account.id)}
         />

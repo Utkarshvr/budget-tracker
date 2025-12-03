@@ -14,6 +14,7 @@ type AccountCardProps = {
   showTypeMeta: boolean;
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;
+  onShowActions: (account: Account) => void;
   expanded: boolean;
   onToggleExpanded: () => void;
 };
@@ -25,6 +26,7 @@ export function AccountCard({
   showTypeMeta,
   onEdit,
   onDelete,
+  onShowActions,
   expanded,
   onToggleExpanded,
 }: AccountCardProps) {
@@ -42,7 +44,6 @@ export function AccountCard({
       <TouchableOpacity
         className="rounded-3xl"
         onPress={() => onEdit(account)}
-        onLongPress={() => onDelete(account)}
         activeOpacity={0.9}
         style={styles.cardInner}
       >
@@ -69,8 +70,12 @@ export function AccountCard({
             </View>
           </View>
           <TouchableOpacity
-            onPress={() => onDelete(account)}
+            onPress={(e) => {
+              e.stopPropagation();
+              onShowActions(account);
+            }}
             className="w-8 h-8 rounded-full bg-white/5 items-center justify-center"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <MaterialIcons name="more-vert" size={18} color={theme.colors.muted.foreground} />
           </TouchableOpacity>

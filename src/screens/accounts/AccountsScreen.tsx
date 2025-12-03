@@ -6,6 +6,7 @@ import { Account, AccountFormData } from "@/types/account";
 import { theme } from "@/constants/theme";
 import { useAccountsData } from "./hooks/useAccountsData";
 import { AccountFormSheet } from "./components/AccountFormSheet";
+import { AccountActionSheet } from "./components/AccountActionSheet";
 import { AccountsHeader } from "./components/AccountsHeader";
 import { AccountsSection } from "./components/AccountsSection";
 import { AccountsEmptyState } from "./components/AccountsEmptyState";
@@ -30,6 +31,8 @@ export default function AccountsScreen() {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [expandedReservations, setExpandedReservations] = useState<Record<string, boolean>>({});
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 
   const handleAddAccount = () => {
     setEditingAccount(null);
@@ -39,6 +42,11 @@ export default function AccountsScreen() {
   const handleEditAccount = (account: Account) => {
     setEditingAccount(account);
     setFormSheetVisible(true);
+  };
+
+  const handleShowActions = (account: Account) => {
+    setSelectedAccount(account);
+    setActionSheetVisible(true);
   };
 
   const handleDelete = async (account: Account) => {
@@ -91,6 +99,7 @@ export default function AccountsScreen() {
           showTypeMeta={true}
           onEdit={handleEditAccount}
           onDelete={handleDelete}
+          onShowActions={handleShowActions}
           expandedReservations={expandedReservations}
           onToggleReservations={handleToggleReservations}
         />
@@ -103,6 +112,7 @@ export default function AccountsScreen() {
           showTypeMeta={false}
           onEdit={handleEditAccount}
           onDelete={handleDelete}
+          onShowActions={handleShowActions}
           expandedReservations={expandedReservations}
           onToggleReservations={handleToggleReservations}
         />
@@ -121,6 +131,17 @@ export default function AccountsScreen() {
         }}
         onSubmit={handleSubmit}
         loading={submitting}
+      />
+
+      <AccountActionSheet
+        visible={actionSheetVisible}
+        account={selectedAccount}
+        onClose={() => {
+          setActionSheetVisible(false);
+          setSelectedAccount(null);
+        }}
+        onEdit={handleEditAccount}
+        onDelete={handleDelete}
       />
     </SafeAreaView>
   );

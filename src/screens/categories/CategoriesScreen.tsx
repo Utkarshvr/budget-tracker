@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Alert, RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
@@ -8,12 +8,12 @@ import { theme } from "@/constants/theme";
 import { useCategoriesData } from "./hooks/useCategoriesData";
 import { CategoryFormSheet } from "./components/CategoryFormSheet";
 import { CategoryReservationSheet } from "./components/CategoryReservationSheet";
+import { CategoryActionSheet } from "./components/CategoryActionSheet";
 import { CategoriesHeader } from "./components/CategoriesHeader";
 import { CategoriesTabs } from "./components/CategoriesTabs";
 import { CategoriesEmptyState } from "./components/CategoriesEmptyState";
 import { CategoryList } from "./components/CategoryList";
 import { FullScreenLoader } from "./components/FullScreenLoader";
-import { useMemo } from "react";
 import { getTotalReserved as getTotalReservedForAccount } from "@/screens/accounts/utils/accountHelpers";
 
 export default function CategoriesScreen() {
@@ -40,6 +40,8 @@ export default function CategoriesScreen() {
   const [expandedCategories, setExpandedCategories] = useState<
     Record<string, boolean>
   >({});
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const accountUnreserved = useMemo(() => {
     const map: Record<string, number> = {};
@@ -148,16 +150,9 @@ export default function CategoriesScreen() {
     }));
   };
 
-  const handleCategoryActions = (category: Category) => {
-    Alert.alert(category.name, "Choose an action", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Edit", onPress: () => handleEditCategory(category) },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => handleDeleteCategory(category),
-      },
-    ]);
+  const handleShowActions = (category: Category) => {
+    setSelectedCategory(category);
+    setActionSheetVisible(true);
   };
 
   if (loading) {
@@ -192,7 +187,7 @@ export default function CategoriesScreen() {
             reservations={reservations}
             expandedCategories={expandedCategories}
             onToggleCategory={toggleCategory}
-            onCategoryActions={handleCategoryActions}
+            onShowActions={handleShowActions}
             onEditCategory={handleEditCategory}
             onManageReservations={handleManageReservations}
             getReservationsForCategory={getReservationsForCategory}
@@ -223,6 +218,17 @@ export default function CategoriesScreen() {
           setSelectedCategoryForReservation(null);
         }}
         onUpdated={handleReservationUpdated}
+      />
+
+      <CategoryActionSheet
+        visible={actionSheetVisible}
+        category={selectedCategory}
+        onClose={() => {
+          setActionSheetVisible(false);
+          setSelectedCategory(null);
+        }}
+        onEdit={handleEditCategory}
+        onDelete={handleDeleteCategory}
       />
     </SafeAreaView>
   );

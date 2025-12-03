@@ -12,7 +12,7 @@ type CategoryCardProps = {
   totalReserved: number;
   isExpanded: boolean;
   onToggle: () => void;
-  onCategoryActions: () => void;
+  onShowActions: () => void;
   onEditCategory: () => void;
   accounts: Account[];
   onManageReservations: () => void;
@@ -24,7 +24,7 @@ export function CategoryCard({
   totalReserved,
   isExpanded,
   onToggle,
-  onCategoryActions,
+  onShowActions,
   onEditCategory,
   accounts,
   onManageReservations,
@@ -90,7 +90,7 @@ export function CategoryCard({
           <TouchableOpacity
             onPress={(e) => {
               e.stopPropagation();
-              onCategoryActions();
+              onShowActions();
             }}
             className="w-9 h-9 rounded-full items-center justify-center"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}

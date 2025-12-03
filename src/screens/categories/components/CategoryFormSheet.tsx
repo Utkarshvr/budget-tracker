@@ -37,7 +37,7 @@ export function CategoryFormSheet({
   loading = false,
 }: CategoryFormSheetProps) {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ["75%", "90%"], []);
+  const snapPoints = useMemo(() => ["90%"], []);
 
   const [formData, setFormData] = useState<CategoryFormData>({
     name: "",
