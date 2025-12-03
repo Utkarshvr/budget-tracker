@@ -1,0 +1,3 @@
+"UNRESERVED" -> "FREE TO SPEND"
+
+Changed the CateogoryFormSheet 

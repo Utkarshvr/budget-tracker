@@ -66,11 +66,11 @@ export function ReservationsSection({
           </Text>
         </>
       )}
-      <View className="mt-4">
+      <View className="mt-4 self-end">
         <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
-          Unreserved
+          Free to Spend
         </Text>
-        <Text className="text-foreground text-lg font-bold mt-1">
+        <Text className="text-foreground text-lg font-bold mt-1 text-right">
           {formatBalance(unallocated, account.currency)}
         </Text>
       </View>
