@@ -1,9 +1,16 @@
-import { useState, useCallback, useMemo } from "react";
-import { ScrollView, RefreshControl, Alert, Modal, View, ActivityIndicator } from "react-native";
+import { useState, useCallback, useMemo, useEffect } from "react";
+import { ScrollView, RefreshControl, Alert, Modal, View, ActivityIndicator, Dimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import { GestureDetector, Gesture } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  withDelay,
+  runOnJS,
+} from "react-native-reanimated";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { useThemeColors } from "@/constants/theme";
 import { useTransactionsData } from "./hooks/useTransactionsData";
@@ -16,6 +23,9 @@ import { TransactionActionSheet } from "./components/TransactionActionSheet";
 import { Transaction } from "@/types/transaction";
 import { supabase } from "@/lib/supabase";
 import TransactionFormScreen from "./TransactionFormScreen";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.4; // 40% of screen width
 
 export default function TransactionsScreen() {
   const colors = useThemeColors();
@@ -94,24 +104,74 @@ export default function TransactionsScreen() {
     [handleRefresh, session?.user.id]
   );
 
+  // Animated value for swipe translation
+  const translateX = useSharedValue(0);
+
+  // Animated style for transaction list
+  const animatedListStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateX: translateX.value }],
+    };
+  });
+
+  // Callback to trigger month change after animation completes
+  const triggerMonthChange = useCallback(
+    (direction: "next" | "prev") => {
+      if (direction === "next") {
+        handleNextPeriod();
+      } else {
+        handlePreviousPeriod();
+      }
+    },
+    [handleNextPeriod, handlePreviousPeriod]
+  );
+
+  // Reset translation when loading starts (month change triggered)
+  useEffect(() => {
+    if (loading && !refreshing) {
+      translateX.value = withSpring(0);
+    }
+  }, [loading, refreshing, translateX]);
+
   // Swipe gesture handler for navigating between months
   const swipeGesture = useMemo(
     () =>
       Gesture.Pan()
         .activeOffsetX([-10, 10]) // Activate when horizontal movement exceeds 10px
         .failOffsetY([-5, 5]) // Fail if vertical movement exceeds 5px (prevents interference with ScrollView)
+        .onChange((event) => {
+          // Update translation in real-time as user swipes - no clamping, follow finger
+          translateX.value = event.translationX;
+        })
         .onEnd((event) => {
           const { translationX } = event;
-          // Swipe left (positive translationX) = next month
-          if (translationX < -50) {
-            runOnJS(handleNextPeriod)();
-          }
-          // Swipe right (negative translationX) = previous month
-          else if (translationX > 50) {
-            runOnJS(handlePreviousPeriod)();
+          const absTranslation = Math.abs(translationX);
+
+          // If swipe is less than 40% of screen width, spring back to original position
+          if (absTranslation < SWIPE_THRESHOLD) {
+            translateX.value = withSpring(0);
+          } else {
+            // Swipe is >= 40%, complete animation to full screen width
+            const targetX = translationX < 0 ? -SCREEN_WIDTH : SCREEN_WIDTH;
+            const direction = translationX < 0 ? "next" : "prev";
+
+            translateX.value = withTiming(
+              targetX,
+              {
+                duration: 300,
+              },
+              (finished) => {
+                if (finished) {
+                  // After animation completes, trigger month change
+                  runOnJS(triggerMonthChange)(direction);
+                  // Reset to 0 after a brief delay to show the completion
+                  translateX.value = withDelay(100, withSpring(0));
+                }
+              }
+            );
           }
         }),
-    [handleNextPeriod, handlePreviousPeriod]
+    [triggerMonthChange, translateX]
   );
 
   const totalCount = filteredAndGroupedTransactions.reduce(
@@ -154,20 +214,22 @@ export default function TransactionsScreen() {
             loading={loading || refreshing}
           />
 
-          {loading && !refreshing ? (
-            <View className="py-8 items-center justify-center">
-              <ActivityIndicator size="large" color={colors.primary.DEFAULT} />
-            </View>
-          ) : filteredAndGroupedTransactions.length > 0 ? (
-            <TransactionsList
-              grouped={filteredAndGroupedTransactions}
-              colors={colors}
-              typeMeta={typeMeta}
-              onTransactionPress={handleTransactionPress}
-            />
-          ) : (
-            <EmptyState colors={colors} />
-          )}
+          <Animated.View style={animatedListStyle}>
+            {loading && !refreshing ? (
+              <View className="py-8 items-center justify-center">
+                <ActivityIndicator size="large" color={colors.primary.DEFAULT} />
+              </View>
+            ) : filteredAndGroupedTransactions.length > 0 ? (
+              <TransactionsList
+                grouped={filteredAndGroupedTransactions}
+                colors={colors}
+                typeMeta={typeMeta}
+                onTransactionPress={handleTransactionPress}
+              />
+            ) : (
+              <EmptyState colors={colors} />
+            )}
+          </Animated.View>
         </ScrollView>
       </GestureDetector>
 
