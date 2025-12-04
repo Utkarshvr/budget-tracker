@@ -49,18 +49,16 @@ export function TransactionItem({
               className="w-11 h-11 rounded-2xl items-center justify-center"
               style={{ backgroundColor: categoryBg }}
             >
-              <Text className="text-2xl">{categoryEmoji}</Text>
+              {transaction.type === "transfer" ? (
+                <MaterialIcons
+                  name="swap-horiz"
+                  size={24}
+                  color={colors.foreground}
+                />
+              ) : (
+                <Text className="text-2xl">{categoryEmoji}</Text>
+              )}
             </View>
-            {/* <View
-              className="absolute -bottom-1 -left-1 w-5 h-5 rounded-full items-center justify-center"
-              style={{ backgroundColor: typeMeta.badgeBg }}
-            >
-              <MaterialIcons
-                name={typeMeta.icon}
-                size={12}
-                color={typeMeta.badgeIconColor}
-              />
-            </View> */}
           </View>
 
           <View className="flex-1 justify-center">
@@ -73,11 +71,11 @@ export function TransactionItem({
                   {transaction.note}
                 </Text>
                 <Text
-                  className="text-xs mt-1"
+                  className="text-sm mt-1"
                   style={{ color: colors.muted.foreground }}
                 >
                   {transaction.category?.name ||
-                    transaction.type.replace("_", " ")}
+                    transaction.type.replace("_", " ").charAt(0).toUpperCase() + transaction.type.replace("_", " ").slice(1)}
                 </Text>
               </View>
               <View className="items-end">
@@ -100,7 +98,7 @@ export function TransactionItem({
                 {accountLabel && (
                   <View className="mt-1.5">
                     <Text
-                      className="text-xs text-right"
+                      className="text-sm text-right"
                       style={{ color: colors.muted.foreground }}
                     >
                       {accountLabel}

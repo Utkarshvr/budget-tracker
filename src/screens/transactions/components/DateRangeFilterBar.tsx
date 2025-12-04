@@ -53,7 +53,7 @@ export function DateRangeFilterBar({
 
   return (
     <View className="flex-row items-center justify-between gap-2">
-      <View className="flex-row items-center ">
+      <View className="flex-row items-center gap-1">
         <TouchableOpacity
           onPress={onPrev}
           className="p-1"
@@ -61,12 +61,12 @@ export function DateRangeFilterBar({
         >
           <MaterialIcons
             name="chevron-left"
-            size={24}
+            size={28}
             color={colors.primary.DEFAULT}
           />
         </TouchableOpacity>
         <Text
-          className="text-sm font-semibold text-center"
+          className="text-base font-semibold text-center"
           style={{ color: colors.foreground }}
         >
           {formatDateRange(
@@ -82,7 +82,7 @@ export function DateRangeFilterBar({
         >
           <MaterialIcons
             name="chevron-right"
-            size={24}
+            size={28}
             color={colors.primary.DEFAULT}
           />
         </TouchableOpacity>

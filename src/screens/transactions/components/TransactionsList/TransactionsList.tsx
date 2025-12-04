@@ -24,7 +24,7 @@ export function TransactionsList({
   onTransactionPress,
 }: TransactionsListProps) {
   return (
-    <View className="mb-6 -mx-4">
+    <View className="px-2 mb-6 -mx-4">
       {grouped.map((group, groupIndex) => (
         <TransactionGroup
           key={group.date}

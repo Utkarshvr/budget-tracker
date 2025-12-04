@@ -29,7 +29,7 @@ export function ReservationsSection({
             className="flex-row items-center justify-between"
           >
             <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
-              Reserved Funds ({reservations.length})
+              Funds ({reservations.length})
             </Text>
             <MaterialIcons
               name={expanded ? "expand-less" : "expand-more"}
@@ -52,7 +52,7 @@ export function ReservationsSection({
       ) : (
         <>
           <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
-            Reserved Funds
+            Funds
           </Text>
           <Text className="text-muted-foreground text-sm mt-2">
             No funds yet. Create one to reserve money for goals.

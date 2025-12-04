@@ -29,7 +29,7 @@ export function TransactionGroup({
   return (
     <View>
       {/* Date Header */}
-      <View className="px-4 py-2">
+      <View className="px-4 py-1">
         <Text
           className="text-base font-bold text-left"
           style={{ color: colors.muted.foreground }}

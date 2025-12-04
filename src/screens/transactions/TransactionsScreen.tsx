@@ -9,7 +9,7 @@ import { buildTypeMeta } from "./utils/typeMeta";
 import { type DateRangeFilter } from "./utils/dateRange";
 import { FilterDropdown } from "./components/FilterDropdown";
 import { TransactionsHeader } from "./components/TransactionsHeader";
-import { DateRangeFilterBar } from "./components/DateRangeFilterBar";
+import { SummarySection } from "./components/SummarySection";
 import { TransactionsList } from "./components/TransactionsList";
 import { EmptyState } from "./components/EmptyState";
 import { FullScreenLoader } from "./components/FullScreenLoader";
@@ -138,7 +138,7 @@ export default function TransactionsScreen() {
       style={{ backgroundColor: colors.background.DEFAULT }}
     >
       <ScrollView
-        className="flex-1 px-4 pt-4"
+        className="flex-1"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -147,13 +147,18 @@ export default function TransactionsScreen() {
           />
         }
       >
-        <TransactionsHeader totalCount={totalCount} colors={colors} />
-
-        <DateRangeFilterBar
+        <TransactionsHeader
+          totalCount={totalCount}
+          colors={colors}
           filterType={filterType}
           currentDateRange={currentDateRange}
           onPrev={handlePreviousPeriod}
           onNext={handleNextPeriod}
+          onFilterPress={handleToggleDropdown}
+          filterButtonRef={filterButtonRef}
+        />
+
+        <SummarySection
           filteredTransactions={filteredTransactions}
           colors={colors}
         />
