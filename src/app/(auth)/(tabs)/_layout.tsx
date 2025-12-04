@@ -19,6 +19,7 @@ export default function TabLayout() {
   const [transactionAmount, setTransactionAmount] = useState("0.00");
   const pathname = usePathname();
   const isSettingsTab = pathname?.includes("/settings");
+  const isStatsTab = pathname?.includes("/stats");
 
   return (
     <View style={{ flex: 1 }}>
@@ -47,9 +48,18 @@ export default function TabLayout() {
         <Tabs.Screen
           name="transactions"
           options={{
-            title: "Transactions",
+            title: "Trans.",
             tabBarIcon: ({ color, size }) => (
               <MaterialIcons name="receipt-long" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="stats"
+          options={{
+            title: "Stats",
+            tabBarIcon: ({ color, size }) => (
+              <MaterialIcons name="bar-chart" size={size} color={color} />
             ),
           }}
         />
@@ -78,15 +88,15 @@ export default function TabLayout() {
         <Tabs.Screen
           name="settings"
           options={{
-            title: "Settings",
+            title: "More",
             tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="settings" size={size} color={color} />
+              <MaterialIcons name="more-horiz" size={size} color={color} />
             ),
           }}
         />
       </Tabs>
 
-      {!isSettingsTab && (
+      {!isSettingsTab && !isStatsTab && (
         <TouchableOpacity
           style={[
             styles.fab,
