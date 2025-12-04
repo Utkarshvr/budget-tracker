@@ -18,6 +18,7 @@ import { Category, CategoryFormData } from "@/types/category";
 import { PrimaryButton } from "@/screens/auth/components/PrimaryButton";
 import { CATEGORY_COLORS } from "@/constants/categoryColors";
 import { EMOJI_CATEGORIES } from "@/constants/emojis";
+import { useThemeColors } from "@/constants/theme";
 
 type CategoryFormSheetProps = {
   visible: boolean;
@@ -38,6 +39,8 @@ export function CategoryFormSheet({
 }: CategoryFormSheetProps) {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["90%"], []);
+
+  const colors = useThemeColors()
 
   const [formData, setFormData] = useState<CategoryFormData>({
     name: "",
@@ -146,8 +149,8 @@ export function CategoryFormSheet({
         onChange={handleSheetChanges}
         onDismiss={handleDismiss}
         enablePanDownToClose
-        backgroundStyle={{ backgroundColor: "#171717" }}
-        handleIndicatorStyle={{ backgroundColor: "#525252" }}
+        backgroundStyle={{ backgroundColor: colors.background.DEFAULT }}
+        handleIndicatorStyle={{ backgroundColor: colors.border }}
         backdropComponent={renderBackdrop}
         keyboardBehavior="interactive"
         keyboardBlurBehavior="restore"
