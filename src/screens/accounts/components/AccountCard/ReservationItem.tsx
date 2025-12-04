@@ -30,7 +30,7 @@ export function ReservationItem({ reservation, showDivider }: ReservationItemPro
             )}
           </View>
         </View>
-        <Text className="text-primary text-sm font-semibold">
+        <Text className="text-muted-foreground text-sm font-semibold">
           {formatBalance(reservation.reserved_amount, reservation.currency)}
         </Text>
       </View>

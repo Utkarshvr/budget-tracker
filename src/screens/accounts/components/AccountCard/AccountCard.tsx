@@ -1,10 +1,17 @@
 import { Text, View, TouchableOpacity, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Account } from "@/types/account";
 import { Category, CategoryReservation } from "@/types/category";
 import { theme } from "@/constants/theme";
-import { ACCOUNT_TYPE_ICONS, ACCOUNT_TYPE_COLORS, formatBalance, getAccountReservations, getTotalReserved } from "../../utils";
+import {
+  ACCOUNT_TYPE_ICONS,
+  ACCOUNT_TYPE_COLORS,
+  formatBalance,
+  getAccountReservations,
+  getTotalReserved,
+} from "../../utils";
 import { ReservationsSection } from "./ReservationsSection";
 
 type AccountCardProps = {
@@ -30,13 +37,26 @@ export function AccountCard({
   expanded,
   onToggleExpanded,
 }: AccountCardProps) {
-  const accountReservations = getAccountReservations(account.id, reservations, categories);
-  const totalReserved = getTotalReserved(account.id, reservations);
-  const unallocated = Math.max(account.balance - totalReserved, 0);
+  const router = useRouter();
+
+  const accountReservations = getAccountReservations(
+    account.id,
+    reservations,
+    categories
+  );
+
+  // Placeholder-style values for clarity of the money hierarchy
+  const totalBalance = account.balance;
+  const reservedTotal = getTotalReserved(account.id, reservations);
+  const freeToSpend = Math.max(totalBalance - reservedTotal, 0);
+  const reservedFundsList = accountReservations;
 
   return (
     <LinearGradient
-      colors={[theme.colors.surfaceGradient.from, theme.colors.surfaceGradient.to]}
+      colors={[
+        theme.colors.surfaceGradient.from,
+        theme.colors.surfaceGradient.to,
+      ]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.cardGradient}
@@ -77,26 +97,68 @@ export function AccountCard({
             className="w-8 h-8 rounded-full bg-white/5 items-center justify-center"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <MaterialIcons name="more-vert" size={18} color={theme.colors.muted.foreground} />
+            <MaterialIcons
+              name="more-vert"
+              size={18}
+              color={theme.colors.muted.foreground}
+            />
           </TouchableOpacity>
         </View>
 
+        {/* Hero total balance */}
         <View className="mt-4">
-          <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
+          {/* <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
             Total Balance
-          </Text>
-          <Text className="text-primary text-2xl font-bold mt-1">
-            {formatBalance(account.balance, account.currency)}
+          </Text> */}
+          <Text className="text-foreground text-3xl text-center font-extrabold mt-1">
+            {formatBalance(totalBalance, account.currency)}
           </Text>
         </View>
 
+        {/* Mini stats row: Reserved / Free to Spend */}
+        <View className="mt-4 flex-row items-center rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
+          <View className="flex-1 mr-3">
+            <Text className="text-muted-foreground text-[10px] uppercase tracking-[0.2em]">
+              Spendable
+            </Text>
+            <Text className="text-primary text-xl font-semibold mt-1">
+              {formatBalance(freeToSpend, account.currency)}
+            </Text>
+          </View>
+
+          <View className="w-px h-8 bg-white/10" />
+
+          <View className="flex-1 ml-3 items-end">
+            <Text className="text-muted-foreground text-[10px] uppercase tracking-[0.2em]">
+              Reserved
+            </Text>
+            <Text className="text-[#FACC15] text-xl font-semibold mt-1">
+              {formatBalance(reservedTotal, account.currency)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Reserved funds list below stats */}
         <ReservationsSection
-          account={account}
-          reservations={accountReservations}
-          unallocated={unallocated}
+          reservations={reservedFundsList}
           expanded={expanded}
           onToggle={onToggleExpanded}
         />
+
+        {/* Manage funds button at the bottom */}
+        <TouchableOpacity
+          className="mt-4 flex-row items-center justify-center rounded-2xl bg-primary-soft border border-primary-border py-2"
+          onPress={() => router.push("/(auth)/(tabs)/categories")}
+        >
+          <MaterialIcons
+            name="savings"
+            size={16}
+            color={theme.colors.primary.DEFAULT}
+          />
+          <Text className="text-primary text-sm font-semibold ml-2">
+            Manage Funds
+          </Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     </LinearGradient>
   );
@@ -118,4 +180,3 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
 });
-

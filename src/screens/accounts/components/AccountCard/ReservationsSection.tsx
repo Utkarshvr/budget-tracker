@@ -1,30 +1,23 @@
 import { Text, View, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { Account } from "@/types/account";
-import { CategoryReservation } from "@/types/category";
 import { theme } from "@/constants/theme";
-import { formatBalance } from "../../utils";
+import { CategoryReservation } from "@/types/category";
 import { ReservationItem } from "./ReservationItem";
 
 type ReservationsSectionProps = {
-  account: Account;
+  // reservedFundsList: Array<{ name: string; amount: number }>
   reservations: Array<
     CategoryReservation & { categoryName: string; categoryEmoji: string }
   >;
-  unallocated: number;
   expanded: boolean;
   onToggle: () => void;
 };
 
 export function ReservationsSection({
-  account,
   reservations,
-  unallocated,
   expanded,
   onToggle,
 }: ReservationsSectionProps) {
-  const router = useRouter();
   const hasReservations = reservations.length > 0;
 
   return (
@@ -66,23 +59,6 @@ export function ReservationsSection({
           </Text>
         </>
       )}
-      <View className="mt-4 self-end">
-        <Text className="text-muted-foreground text-xs uppercase tracking-[0.2em]">
-          Free to Spend
-        </Text>
-        <Text className="text-foreground text-lg font-bold mt-1 text-right">
-          {formatBalance(unallocated, account.currency)}
-        </Text>
-      </View>
-      <TouchableOpacity
-        className="mt-4 flex-row items-center justify-center rounded-2xl bg-primary-soft border border-primary-border py-2"
-        onPress={() => router.push("/(auth)/(tabs)/categories")}
-      >
-        <MaterialIcons name="savings" size={16} color={theme.colors.primary.DEFAULT} />
-        <Text className="text-primary text-sm font-semibold ml-2">
-          {hasReservations ? "Manage Funds" : "+ Create Fund"}
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 }
