@@ -16,9 +16,8 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { Category, CategoryFormData } from "@/types/category";
 import { PrimaryButton } from "@/screens/auth/components/PrimaryButton";
-import { CATEGORY_COLORS } from "@/constants/categoryColors";
 import { EMOJI_CATEGORIES } from "@/constants/emojis";
-import { useThemeColors } from "@/constants/theme";
+import { useThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 
 type CategoryFormSheetProps = {
   visible: boolean;
@@ -41,11 +40,12 @@ export function CategoryFormSheet({
   const snapPoints = useMemo(() => ["90%"], []);
 
   const colors = useThemeColors()
+  const defaultBgColor = getCategoryBackgroundColor(colors);
 
   const [formData, setFormData] = useState<CategoryFormData>({
     name: "",
     emoji: "📁",
-    background_color: CATEGORY_COLORS[0],
+    background_color: defaultBgColor,
     category_type: defaultCategoryType,
   });
   const nameInputRef = useRef<TextInput>(null);
@@ -74,7 +74,7 @@ export function CategoryFormSheet({
       const newFormData = {
         name: category.name,
         emoji: category.emoji,
-        background_color: category.background_color,
+        background_color: defaultBgColor,
         category_type: category.category_type,
       };
       setFormData(newFormData);
@@ -84,7 +84,7 @@ export function CategoryFormSheet({
       const newFormData = {
         name: "",
         emoji: "📁",
-        background_color: CATEGORY_COLORS[0],
+        background_color: defaultBgColor,
         category_type: defaultCategoryType,
       };
       setFormData(newFormData);
@@ -93,7 +93,7 @@ export function CategoryFormSheet({
     }
     setErrors({});
     setShowEmojiMenu(false);
-  }, [category, defaultCategoryType]);
+  }, [category, defaultCategoryType, defaultBgColor]);
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -138,7 +138,7 @@ export function CategoryFormSheet({
 
   const handleSubmit = async () => {
     if (!validate()) return;
-    await onSubmit({ ...formData, name: nameValueRef.current });
+    await onSubmit({ ...formData, background_color: defaultBgColor, name: nameValueRef.current });
   };
 
   return (
@@ -174,7 +174,7 @@ export function CategoryFormSheet({
             <TouchableOpacity
               onPress={() => setShowEmojiMenu(true)}
               className="size-24 rounded-full items-center justify-center"
-              style={{ backgroundColor: formData.background_color }}
+              style={{ backgroundColor: defaultBgColor }}
             >
               <Text style={{ fontSize: 48 }}>{formData.emoji}</Text>
             </TouchableOpacity>
@@ -235,31 +235,6 @@ export function CategoryFormSheet({
               </View>
             </>
           )}
-
-          <Text className="text-neutral-300 text-sm mb-3">Accent Color</Text>
-          <View className="flex-row flex-wrap mb-6 items-center justify-center">
-            {CATEGORY_COLORS.map((color) => (
-              <TouchableOpacity
-                key={color}
-                onPress={() =>
-                  setFormData({ ...formData, background_color: color })
-                }
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  marginRight: 12,
-                  marginBottom: 12,
-                  backgroundColor: color,
-                  borderWidth: formData.background_color === color ? 3 : 0,
-                  borderColor:
-                    formData.background_color === color
-                      ? "#22c55e"
-                      : "transparent",
-                }}
-              />
-            ))}
-          </View>
 
           <PrimaryButton
             label={category ? "Save Changes" : "Create Category"}

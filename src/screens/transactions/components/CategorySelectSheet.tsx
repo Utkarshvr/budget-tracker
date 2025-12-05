@@ -9,6 +9,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { Category, CategoryReservation } from "@/types/category";
 import { supabase } from "@/lib/supabase";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
+import { useThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 
 type CategorySelectSheetProps = {
   visible: boolean;
@@ -38,6 +39,8 @@ export function CategorySelectSheet({
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["90%"], []);
   const { session } = useSupabaseSession();
+  const colors = useThemeColors();
+  const categoryBgColor = getCategoryBackgroundColor(colors);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reservations, setReservations] = useState<CategoryReservation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -189,7 +192,7 @@ export function CategorySelectSheet({
           width: 48,
           height: 48,
           borderRadius: 12,
-          backgroundColor: item.background_color,
+          backgroundColor: categoryBgColor,
           alignItems: "center",
           justifyContent: "center",
           marginRight: 12,

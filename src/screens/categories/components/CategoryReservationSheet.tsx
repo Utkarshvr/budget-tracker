@@ -19,6 +19,7 @@ import { Category, CategoryReservation } from "@/types/category";
 import { Account } from "@/types/account";
 import { supabase } from "@/lib/supabase";
 import { getErrorMessage } from "@/utils/errorHandler";
+import { useThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -52,6 +53,8 @@ export function CategoryReservationSheet({
   onClose,
   onUpdated,
 }: CategoryReservationSheetProps) {
+  const colors = useThemeColors();
+  const categoryBgColor = getCategoryBackgroundColor(colors);
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["90%"], []);
 
@@ -222,7 +225,7 @@ export function CategoryReservationSheet({
           <View className="flex-row items-center flex-1">
             <View
               className="w-12 h-12 rounded-xl items-center justify-center mr-3"
-              style={{ backgroundColor: category.background_color }}
+              style={{ backgroundColor: categoryBgColor }}
             >
               <Text style={{ fontSize: 24 }}>{category.emoji}</Text>
             </View>

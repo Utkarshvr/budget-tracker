@@ -7,7 +7,7 @@ import {
 } from "@gorhom/bottom-sheet";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Transaction } from "@/types/transaction";
-import { type ThemeColors } from "@/constants/theme";
+import { type ThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 import { type TransactionTypeMeta } from "../utils/typeMeta";
 import { formatAmount } from "../utils/formatting";
 import { getAccountLabel } from "../utils/accountLabel";
@@ -118,8 +118,7 @@ export function TransactionActionSheet({
   const categoryEmoji = transaction.category?.emoji || "💸";
   const showTransferIcon =
     !transaction.category?.emoji && transaction.type === "transfer";
-  const categoryBg =
-    transaction.category?.background_color || colors.background.subtle;
+  const categoryBg = getCategoryBackgroundColor(colors);
 
   const categoryName =
     transaction.category?.name ||

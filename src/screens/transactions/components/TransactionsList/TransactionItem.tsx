@@ -1,7 +1,7 @@
 import { Text, TouchableHighlight, View, Platform } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Transaction } from "@/types/transaction";
-import { type ThemeColors } from "@/constants/theme";
+import { type ThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 import { type TransactionTypeMeta } from "../../utils/typeMeta";
 import { formatAmount } from "../../utils/formatting";
 import { getAccountLabel } from "../../utils/accountLabel";
@@ -25,8 +25,7 @@ export function TransactionItem({
 }: TransactionItemProps) {
   const typeMeta = TRANSACTION_TYPE_META[transaction.type] || DEFAULT_TYPE_META;
   const categoryEmoji = transaction.category?.emoji || "💸";
-  const categoryBg =
-    transaction.category?.background_color || colors.background.subtle;
+  const categoryBg = getCategoryBackgroundColor(colors);
   const rippleProps =
     Platform.OS === "android"
       ? ({

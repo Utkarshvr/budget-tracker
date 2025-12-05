@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { PieChart } from "react-native-gifted-charts";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
-import { useThemeColors } from "@/constants/theme";
+import { useThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 import { useStatsData } from "./hooks/useStatsData";
 import { DateRangeFilter } from "@/screens/transactions/utils/dateRange";
 import { formatAmount } from "@/screens/transactions/utils/formatting";
@@ -23,6 +23,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function StatsScreen() {
   const colors = useThemeColors();
+  const categoryBgColor = getCategoryBackgroundColor(colors);
   const { session } = useSupabaseSession();
 
   const [period, setPeriod] = useState<DateRangeFilter>("month");
@@ -308,6 +309,7 @@ export default function StatsScreen() {
                 key={stat.categoryId || `uncategorized-${index}`}
                 stat={stat}
                 colors={colors}
+                categoryBgColor={categoryBgColor}
                 currency={statsData.currency}
               />
             ))}
@@ -379,10 +381,11 @@ export default function StatsScreen() {
 interface CategoryListItemProps {
   stat: CategoryStat;
   colors: ReturnType<typeof useThemeColors>;
+  categoryBgColor: string;
   currency: string;
 }
 
-function CategoryListItem({ stat, colors, currency }: CategoryListItemProps) {
+function CategoryListItem({ stat, colors, categoryBgColor, currency }: CategoryListItemProps) {
   return (
     <View
       className="flex-row items-center justify-between py-3 px-4 mb-2 rounded-lg"
@@ -392,7 +395,7 @@ function CategoryListItem({ stat, colors, currency }: CategoryListItemProps) {
         {/* Percentage Box */}
         <View
           className="w-12 h-12 rounded-md items-center justify-center"
-          style={{ backgroundColor: stat.categoryColor }}
+          style={{ backgroundColor: categoryBgColor }}
         >
           <Text className="text-xs font-bold text-white">
             {Math.round(stat.percentage)}%

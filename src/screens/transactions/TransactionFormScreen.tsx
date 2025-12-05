@@ -25,7 +25,7 @@ import { Category, CategoryReservation } from "@/types/category";
 import { TransactionTypeSheet } from "./components/TransactionTypeSheet";
 import { AccountSelectSheet } from "./components/AccountSelectSheet";
 import { ACCOUNT_TYPE_ICONS } from "@/screens/accounts/utils";
-import { useThemeColors } from "@/constants/theme";
+import { useThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 import { getErrorMessage } from "@/utils/errorHandler";
 
 type TransactionFormScreenProps = {
@@ -531,6 +531,7 @@ export default function TransactionFormScreen({
   };
 
   const colors = useThemeColors();
+  const categoryBgColor = getCategoryBackgroundColor(colors);
 
   const getTypeIconColor = () => {
     switch (formData.type) {
@@ -824,7 +825,7 @@ export default function TransactionFormScreen({
                     <View className="flex-row items-center flex-1">
                       <View
                         className="w-12 h-12 rounded-xl items-center justify-center mr-3"
-                        style={{ backgroundColor: category.background_color }}
+                        style={{ backgroundColor: categoryBgColor }}
                       >
                         <Text style={{ fontSize: 24 }}>{category.emoji}</Text>
                       </View>

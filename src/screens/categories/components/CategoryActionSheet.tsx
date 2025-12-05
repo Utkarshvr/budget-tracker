@@ -7,7 +7,7 @@ import {
 } from "@gorhom/bottom-sheet";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Category } from "@/types/category";
-import { theme } from "@/constants/theme";
+import { useThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 
 type CategoryActionSheetProps = {
   visible: boolean;
@@ -26,6 +26,8 @@ export function CategoryActionSheet({
 }: CategoryActionSheetProps) {
   const bottomSheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ["40%"], []);
+  const colors = useThemeColors();
+  const categoryBgColor = getCategoryBackgroundColor(colors);
 
   useEffect(() => {
     if (visible) {
@@ -76,8 +78,6 @@ export function CategoryActionSheet({
 
   if (!category) return null;
 
-  const colors = theme.colors;
-
   return (
     <BottomSheetModal
       ref={bottomSheetRef}
@@ -99,7 +99,7 @@ export function CategoryActionSheet({
               <View
                 style={[
                   styles.categoryIcon,
-                  { backgroundColor: category.background_color },
+                  { backgroundColor: categoryBgColor },
                 ]}
               >
                 <Text style={styles.categoryEmoji}>{category.emoji}</Text>

@@ -4,7 +4,7 @@ import { Category, CategoryReservation } from "@/types/category";
 import { Account } from "@/types/account";
 import { formatBalance, formatDate } from "../../utils";
 import { CategoryDetails } from "./CategoryDetails";
-import { theme } from "@/constants/theme";
+import { theme, useThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 
 type CategoryCardProps = {
   category: Category;
@@ -29,6 +29,8 @@ export function CategoryCard({
   accounts,
   onManageReservations,
 }: CategoryCardProps) {
+  const colors = useThemeColors();
+  const categoryBgColor = getCategoryBackgroundColor(colors);
   const isReserved = categoryReservations.length > 0;
   const fundCurrency = categoryReservations[0]?.currency || "INR";
 
@@ -43,7 +45,7 @@ export function CategoryCard({
       >
         <View
           className="w-14 h-14 rounded-full items-center justify-center mr-3"
-          style={{ backgroundColor: category.background_color }}
+          style={{ backgroundColor: categoryBgColor }}
         >
           <Text style={{ fontSize: 28 }}>{category.emoji}</Text>
         </View>

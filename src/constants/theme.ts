@@ -100,6 +100,9 @@ const darkColors = {
     expense: "rgba(239, 68, 68, 0.03)", // destructive with 3% opacity
     income: "rgba(34, 197, 94, 0.03)", // primary with 3% opacity
   },
+  
+  // Category icon background color
+  categoryBackgroundColor: "#333",
 } as const;
 
 const lightColors = {
@@ -202,6 +205,9 @@ const lightColors = {
     expense: "rgba(239, 68, 68, 0.03)", // destructive with 3% opacity
     income: "rgba(34, 197, 94, 0.03)", // primary with 3% opacity
   },
+  
+  // Category icon background color
+  categoryBackgroundColor: "#ddd",
 } as const;
 
 export const darkTheme = { colors: darkColors };
@@ -215,4 +221,13 @@ export type ThemeColors = typeof darkColors | typeof lightColors;
 export function useThemeColors(): ThemeColors {
   const scheme = useColorScheme();
   return scheme === "light" ? lightColors : darkColors;
+}
+
+/**
+ * Get the default background color for category icons
+ * @param colors - Theme colors from useThemeColors()
+ * @returns Background color string (#444 for dark mode, #eee for light mode)
+ */
+export function getCategoryBackgroundColor(colors: ThemeColors): string {
+  return colors.categoryBackgroundColor;
 }
