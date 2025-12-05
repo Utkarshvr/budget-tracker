@@ -17,6 +17,7 @@ import { useStatsData } from "./hooks/useStatsData";
 import { DateRangeFilter } from "@/screens/transactions/utils/dateRange";
 import { formatAmount } from "@/screens/transactions/utils/formatting";
 import { CategoryStat } from "./hooks/useStatsData";
+import { Text as SvgText } from "react-native-svg";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -60,8 +61,9 @@ export default function StatsScreen() {
     return currentStats.map((stat, index) => ({
       value: stat.percentage,
       color: stat.categoryColor,
-      text: `${stat.percentage.toFixed(1)}%`,
-      label: stat.categoryName,
+      text: `${formatAmount(stat.totalAmount, stat.currency)}`,
+      // text: `${stat.percentage.toFixed(1)}%`,
+      label: `${stat.categoryEmoji} ${stat.categoryName}`,
       focused: index === 0,
       gradientCenterColor: stat.categoryColor,
     }));
@@ -228,74 +230,51 @@ export default function StatsScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-
-          {/* Total Amounts */}
-          <View className="mb-4 flex-row gap-4">
-            <View className="flex-1">
-              <Text
-                className="text-lg font-semibold"
-                style={{ color: colors.foreground }}
-              >
-                Income
-              </Text>
-              <Text
-                className="text-xl font-bold mt-1"
-                style={{ color: colors.transaction.income.amountClass }}
-              >
-                {formatAmount(statsData.totalIncome, statsData.currency)}
-              </Text>
-            </View>
-            <View className="flex-1">
-              <Text
-                className="text-lg font-semibold"
-                style={{ color: colors.foreground }}
-              >
-                Expenses
-              </Text>
-              <Text
-                className="text-xl font-bold mt-1"
-                style={{ color: colors.transaction.expense.amountClass }}
-              >
-                {formatAmount(statsData.totalExpense, statsData.currency)}
-              </Text>
-            </View>
-          </View>
         </View>
 
         {/* Pie Chart */}
         {currentStats.length > 0 ? (
-          <View className="items-center mb-6 py-4">
+          <View
+            className="items-center"
+            // style={{ backgroundColor: colors.background.subtle }}
+          >
             <PieChart
               data={pieData}
-              radius={140}
-              textColor={colors.white}
-              textSize={11}
+              radius={100}
+              
+              // Text
               showText
+              textSize={10}
+              textColor={colors.foreground}
+              
+              // Stroke
+              strokeWidth={2}
+              strokeColor={colors.background.DEFAULT}
+              
+              // External Labels
+              extraRadius={80}
+              showExternalLabels
               showValuesAsLabels
-              labelsPosition="outward"
-              focusOnPress
-              donut
-              innerRadius={70}
-              innerCircleColor={colors.background.DEFAULT}
-              textBackgroundRadius={26}
-              textBackgroundColor={colors.background.DEFAULT}
-              centerLabelComponent={() => {
+              labelsPosition="mid"
+              externalLabelComponent={(item: any) => {
                 return (
-                  <View className="items-center">
-                    <Text
-                      className="text-lg font-bold"
-                      style={{ color: colors.foreground }}
-                    >
-                      {selectedType === "income" ? "Income" : "Expenses"}
-                    </Text>
-                    <Text
-                      className="text-xs"
-                      style={{ color: colors.muted.foreground }}
-                    >
-                      {currentStats.length} categories
-                    </Text>
-                  </View>
+                  <SvgText
+                    fontSize={11}
+                    fontWeight="800"
+                    fill={colors.foreground}
+                  >
+                    {item?.label}
+                  </SvgText>
                 );
+              }}
+              labelLineConfig={{
+                // length: 8,
+                tailLength: 16,
+                color: colors.muted.foreground,
+                thickness: 1,
+                labelComponentWidth: 42,
+                // ⬇️ THIS is the main fix
+                avoidOverlappingOfLabels: true,
               }}
             />
           </View>
@@ -445,4 +424,3 @@ function CategoryListItem({ stat, colors, currency }: CategoryListItemProps) {
     </View>
   );
 }
-
