@@ -12,7 +12,7 @@ const darkColors = {
 
   // Cards / surfaces
   card: {
-    DEFAULT: "#020617", // bg-card
+    DEFAULT: "#222", // bg-card
     foreground: "#f9fafb", // text-card-foreground
   },
 

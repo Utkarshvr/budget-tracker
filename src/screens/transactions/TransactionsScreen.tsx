@@ -48,6 +48,7 @@ export default function TransactionsScreen() {
     handleRefresh,
     handlePreviousPeriod,
     handleNextPeriod,
+    setCurrentPeriodDate,
   } = useTransactionsData(session);
 
   const [selectedTransaction, setSelectedTransaction] =
@@ -214,6 +215,7 @@ export default function TransactionsScreen() {
             currentDateRange={currentDateRange}
             onPrev={handlePreviousPeriod}
             onNext={handleNextPeriod}
+            onDateSelect={setCurrentPeriodDate}
           />
 
           <SummarySection
