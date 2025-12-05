@@ -7,7 +7,9 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -57,6 +59,7 @@ export default function TransactionFormScreen({
   const [accountSheetMode, setAccountSheetMode] = useState<"from" | "to">(
     "from"
   );
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Initialize form data based on whether we're editing or adding
   const getInitialFormData = (): TransactionFormData => {
@@ -130,6 +133,29 @@ export default function TransactionFormScreen({
       month: "short",
       year: "numeric",
     });
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    // On Android, the picker can be dismissed without selecting
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+      // On Android, if the picker is dismissed, event.type will be "dismissed"
+      if (event.type === "dismissed") {
+        return;
+      }
+    }
+
+    if (selectedDate) {
+      setFormData({
+        ...formData,
+        date: selectedDate.toISOString(),
+      });
+    }
+
+    // On iOS, close the picker after selection or cancellation
+    if (Platform.OS === "ios") {
+      setShowDatePicker(false);
+    }
   };
 
   // Update selectedCategory when category_id changes
@@ -796,8 +822,9 @@ export default function TransactionFormScreen({
 
           {/* Date Field - Always visible for all transaction types */}
           {true && (
-            <View
+            <TouchableOpacity
               key={`date-field-${formData.type}`}
+              onPress={() => setShowDatePicker(true)}
               className="px-4 py-4 border-b border-neutral-800"
             >
               <View className="flex-row items-center">
@@ -806,7 +833,7 @@ export default function TransactionFormScreen({
                   {formatDisplayDate(selectedDate)}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           )}
 
           {/* Categories List (Income / Expense) */}
@@ -917,6 +944,17 @@ export default function TransactionFormScreen({
         onClose={() => setShowAccountSheet(false)}
         onSelect={handleAccountSelect}
       />
+
+      {/* Date Picker */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+          maximumDate={new Date()}
+        />
+      )}
     </>
   );
 }
