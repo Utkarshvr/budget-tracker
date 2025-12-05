@@ -23,9 +23,14 @@ import {
   TransactionFormData,
   TransactionType,
 } from "@/types/transaction";
-import { Category, CategoryReservation } from "@/types/category";
+import {
+  Category,
+  CategoryReservation,
+  CategoryFormData,
+} from "@/types/category";
 import { TransactionTypeSheet } from "./components/TransactionTypeSheet";
 import { AccountSelectSheet } from "./components/AccountSelectSheet";
+import { CategoryFormSheet } from "@/screens/categories/components/CategoryFormSheet";
 import { ACCOUNT_TYPE_ICONS } from "@/screens/accounts/utils";
 import { useThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
 import { getErrorMessage } from "@/utils/errorHandler";
@@ -60,6 +65,9 @@ export default function TransactionFormScreen({
     "from"
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showCategoryFormSheet, setShowCategoryFormSheet] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [submittingCategory, setSubmittingCategory] = useState(false);
 
   // Initialize form data based on whether we're editing or adding
   const getInitialFormData = (): TransactionFormData => {
@@ -220,6 +228,144 @@ export default function TransactionFormScreen({
     } catch (error: any) {
       console.error("Error fetching reservations:", error);
     }
+  };
+
+  const handleCreateCategory = async (categoryFormData: CategoryFormData) => {
+    if (!session?.user) return;
+    setSubmittingCategory(true);
+
+    try {
+      const trimmedName = categoryFormData.name.trim();
+
+      // Check for duplicate category by (name, category_type) combination (case-insensitive name)
+      // Include archived categories to check for duplicates
+      let duplicateQuery = supabase
+        .from("categories")
+        .select("id, name, category_type, is_archived")
+        .eq("user_id", session.user.id)
+        .eq("category_type", categoryFormData.category_type);
+
+      // When editing, exclude the current category from the duplicate check
+      if (editingCategory) {
+        duplicateQuery = duplicateQuery.neq("id", editingCategory.id);
+      }
+
+      const { data: allCategories, error: duplicateError } =
+        await duplicateQuery;
+
+      if (duplicateError) throw duplicateError;
+
+      // Check for case-insensitive duplicate with same category_type
+      const duplicateCategory = allCategories?.find(
+        (cat) => cat.name.toLowerCase() === trimmedName.toLowerCase()
+      );
+
+      // If creating a new category and an archived category with the same (name, type) exists
+      // Automatically restore it without prompting
+      if (
+        !editingCategory &&
+        duplicateCategory &&
+        duplicateCategory.is_archived
+      ) {
+        const { data: restoredCategory, error } = await supabase
+          .from("categories")
+          .update({
+            is_archived: false,
+            emoji: categoryFormData.emoji,
+            background_color: categoryFormData.background_color,
+            category_type: categoryFormData.category_type,
+          })
+          .eq("id", duplicateCategory.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Refresh categories and auto-select the restored category
+        await fetchCategories();
+        if (restoredCategory) {
+          setSelectedCategory(restoredCategory);
+          setFormData((prev) => ({
+            ...prev,
+            category_id: restoredCategory.id,
+          }));
+        }
+        setShowCategoryFormSheet(false);
+        setEditingCategory(null);
+        return;
+      }
+
+      // Check for active duplicate (non-archived) with same (name, type)
+      if (duplicateCategory && !duplicateCategory.is_archived) {
+        Alert.alert(
+          "Duplicate Category",
+          `A ${categoryFormData.category_type} category with the name "${trimmedName}" already exists. Please choose a different name.`
+        );
+        setSubmittingCategory(false);
+        return;
+      }
+
+      if (editingCategory) {
+        // UPDATE MODE: Update existing category
+        const { data: updatedCategory, error } = await supabase
+          .from("categories")
+          .update({
+            name: trimmedName,
+            emoji: categoryFormData.emoji,
+            background_color: categoryFormData.background_color,
+            // Don't update category_type when editing
+          })
+          .eq("id", editingCategory.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Refresh categories and maintain selection if it was selected
+        await fetchCategories();
+        if (updatedCategory && selectedCategory?.id === editingCategory.id) {
+          setSelectedCategory(updatedCategory);
+        }
+      } else {
+        // CREATE MODE: Create new category
+        const { data: newCategory, error } = await supabase
+          .from("categories")
+          .insert({
+            user_id: session.user.id,
+            name: trimmedName,
+            emoji: categoryFormData.emoji,
+            background_color: categoryFormData.background_color,
+            category_type: categoryFormData.category_type,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Refresh categories and auto-select the newly created category
+        await fetchCategories();
+        if (newCategory) {
+          setSelectedCategory(newCategory);
+          setFormData((prev) => ({ ...prev, category_id: newCategory.id }));
+        }
+      }
+
+      setShowCategoryFormSheet(false);
+      setEditingCategory(null);
+    } catch (error: any) {
+      const errorMessage = getErrorMessage(
+        error,
+        `Failed to ${editingCategory ? "update" : "create"} category`
+      );
+      Alert.alert("Error", errorMessage);
+    } finally {
+      setSubmittingCategory(false);
+    }
+  };
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category);
+    setShowCategoryFormSheet(true);
   };
 
   const validate = (): boolean => {
@@ -837,21 +983,37 @@ export default function TransactionFormScreen({
           )}
 
           {/* Categories List (Income / Expense) */}
-          {(formData.type === "expense" || formData.type === "income") &&
-            displayCategories.length > 0 && (
-              <View className="px-4 py-6">
-                <Text className="text-neutral-500 text-xs font-semibold uppercase mb-3">
+          {(formData.type === "expense" || formData.type === "income") && (
+            <View className="px-4 py-6">
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-neutral-500 text-xs font-semibold uppercase">
                   {formData.type === "income"
                     ? "INCOME CATEGORIES"
                     : "CATEGORIES"}
                 </Text>
-                {displayCategories.map(({ category, amountLeft }) => (
-                  <TouchableOpacity
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditingCategory(null);
+                    setShowCategoryFormSheet(true);
+                  }}
+                  className="flex-row items-center"
+                >
+                  <MaterialIcons name="add" size={20} color="#22c55e" />
+                  <Text className="text-green-500 text-xs font-semibold ml-1">
+                    New Category
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {displayCategories.length > 0 ? (
+                displayCategories.map(({ category, amountLeft }) => (
+                  <View
                     key={category.id}
-                    onPress={() => handleCategorySelect(category)}
                     className="flex-row items-center justify-between mb-4"
                   >
-                    <View className="flex-row items-center flex-1">
+                    <TouchableOpacity
+                      onPress={() => handleCategorySelect(category)}
+                      className="flex-row items-center flex-1"
+                    >
                       <View
                         className="w-12 h-12 rounded-xl items-center justify-center mr-3"
                         style={{ backgroundColor: categoryBgColor }}
@@ -878,6 +1040,12 @@ export default function TransactionFormScreen({
                             </Text>
                           )}
                       </View>
+                      <TouchableOpacity
+                        onPress={() => handleEditCategory(category)}
+                        className="p-2 mr-2"
+                      >
+                        <MaterialIcons name="edit" size={18} color="#9ca3af" />
+                      </TouchableOpacity>
                       <View
                         className={`w-6 h-6 rounded-full border-2 items-center justify-center ${
                           selectedCategory?.id === category.id
@@ -889,11 +1057,18 @@ export default function TransactionFormScreen({
                           <MaterialIcons name="check" size={16} color="black" />
                         )}
                       </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+                    </TouchableOpacity>
+                  </View>
+                ))
+              ) : (
+                <View className="py-4">
+                  <Text className="text-neutral-500 text-sm text-center">
+                    No categories yet. Tap "New" to create one.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </ScrollView>
 
         {/* Add/Update Transaction Button - Fixed at Bottom */}
@@ -955,6 +1130,25 @@ export default function TransactionFormScreen({
           maximumDate={new Date()}
         />
       )}
+
+      {/* Category Form Sheet */}
+      <CategoryFormSheet
+        visible={showCategoryFormSheet}
+        category={editingCategory}
+        defaultCategoryType={
+          editingCategory
+            ? editingCategory.category_type
+            : formData.type === "income"
+              ? "income"
+              : "expense"
+        }
+        onClose={() => {
+          setShowCategoryFormSheet(false);
+          setEditingCategory(null);
+        }}
+        onSubmit={handleCreateCategory}
+        loading={submittingCategory}
+      />
     </>
   );
 }

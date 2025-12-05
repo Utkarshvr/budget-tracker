@@ -462,7 +462,7 @@ function CategoryListItem({
 
         {/* Category Info */}
         <View className="flex-row items-center gap-2 flex-1">
-          <Text className="text-base">{stat.categoryEmoji}</Text>
+          <Text className="text-2xl">{stat.categoryEmoji}</Text>
           <Text
             className="text-base font-medium flex-1"
             style={{ color: colors.foreground }}
