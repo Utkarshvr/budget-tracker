@@ -87,9 +87,9 @@ export default function TabLayout() {
         <Tabs.Screen
           name="settings"
           options={{
-            title: "More",
+            title: "Settings",
             tabBarIcon: ({ color, size }) => (
-              <MaterialIcons name="more-horiz" size={size} color={color} />
+              <MaterialIcons name="settings" size={size} color={color} />
             ),
           }}
         />
