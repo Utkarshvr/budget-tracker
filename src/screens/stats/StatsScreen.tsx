@@ -5,8 +5,9 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Modal,
+  Pressable,
   Dimensions,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -32,7 +33,7 @@ export default function StatsScreen() {
   const [selectedType, setSelectedType] = useState<"income" | "expense">(
     "expense"
   );
-  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [showPeriodDropdown, setShowPeriodDropdown] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
 
   const { statsData, loading, refreshing, handleRefresh } = useStatsData(
@@ -64,8 +65,9 @@ export default function StatsScreen() {
     return currentStats.map((stat, index) => ({
       value: stat.percentage,
       color: stat.categoryColor,
-      text: `${formatAmount(stat.totalAmount, stat.currency)}`,
+      // text: `${formatAmount(stat.totalAmount, stat.currency)}`,
       // text: `${stat.percentage.toFixed(1)}%`,
+      text: `${stat.categoryEmoji}`,
       label: `${stat.categoryEmoji} ${stat.categoryName}`,
       focused: index === 0,
       gradientCenterColor: stat.categoryColor,
@@ -124,9 +126,15 @@ export default function StatsScreen() {
             tintColor={colors.primary.DEFAULT}
           />
         }
+        onScrollBeginDrag={() => {
+          if (showPeriodDropdown) {
+            setShowPeriodDropdown(false);
+          }
+        }}
+        scrollEventThrottle={16}
       >
         {/* Header */}
-        <View className="px-4 pt-4 pb-2">
+        <View className="px-4 pt-4 pb-2" style={{ position: "relative" }}>
           <View className="flex-row items-center justify-between mb-4">
             {/* Period Navigation */}
             <View className="flex-row items-center gap-2">
@@ -174,25 +182,84 @@ export default function StatsScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Period Selector */}
-            <TouchableOpacity
-              onPress={() => setShowPeriodModal(true)}
-              className="flex-row items-center gap-1 px-3 py-1.5 rounded-md"
-              style={{ backgroundColor: colors.background.subtle }}
-              activeOpacity={0.7}
-            >
-              <Text
-                className="text-sm font-medium"
-                style={{ color: colors.foreground }}
+            {/* Period Selector with Dropdown */}
+            <View style={{ position: "relative", zIndex: 1000 }}>
+              <TouchableOpacity
+                onPress={() => setShowPeriodDropdown(!showPeriodDropdown)}
+                className="flex-row items-center gap-1 px-3 py-1.5 rounded-md"
+                style={{ backgroundColor: colors.background.subtle }}
+                activeOpacity={0.7}
               >
-                {period === "month" ? "Monthly" : "Annually"}
-              </Text>
-              <MaterialIcons
-                name="arrow-drop-down"
-                size={20}
-                color={colors.foreground}
-              />
-            </TouchableOpacity>
+                <Text
+                  className="text-sm font-medium"
+                  style={{ color: colors.foreground }}
+                >
+                  {period === "month" ? "Monthly" : "Annually"}
+                </Text>
+                <MaterialIcons
+                  name={
+                    showPeriodDropdown ? "arrow-drop-up" : "arrow-drop-down"
+                  }
+                  size={20}
+                  color={colors.foreground}
+                />
+              </TouchableOpacity>
+
+              {/* Dropdown */}
+              {showPeriodDropdown && (
+                <View
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    right: 0,
+                    marginTop: 4,
+                    backgroundColor: colors.card.DEFAULT,
+                    borderRadius: 8,
+                    paddingVertical: 4,
+                    minWidth: 140,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    shadowColor: colors.shadow,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 4,
+                    elevation: 10,
+                    zIndex: 1001,
+                  }}
+                  onStartShouldSetResponder={() => true}
+                >
+                  {periodOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      onPress={() => {
+                        setPeriod(option.value);
+                        setShowPeriodDropdown(false);
+                      }}
+                      className="py-3 px-4"
+                      style={{
+                        backgroundColor:
+                          period === option.value
+                            ? colors.primary.soft
+                            : "transparent",
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        className="text-sm font-medium"
+                        style={{
+                          color:
+                            period === option.value
+                              ? colors.primary.DEFAULT
+                              : colors.foreground,
+                        }}
+                      >
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
 
           {/* Income/Expense Toggle */}
@@ -258,41 +325,39 @@ export default function StatsScreen() {
             <PieChart
               data={pieData}
               radius={100}
-              
               // Text
               showText
-              textSize={10}
+              textSize={18}
               textColor={colors.foreground}
-              
               // Stroke
               strokeWidth={2}
               strokeColor={colors.background.DEFAULT}
-              
+
               // External Labels
-              extraRadius={80}
-              showExternalLabels
-              showValuesAsLabels
-              labelsPosition="mid"
-              externalLabelComponent={(item: any) => {
-                return (
-                  <SvgText
-                    fontSize={11}
-                    fontWeight="800"
-                    fill={colors.foreground}
-                  >
-                    {item?.label}
-                  </SvgText>
-                );
-              }}
-              labelLineConfig={{
-                // length: 8,
-                tailLength: 16,
-                color: colors.muted.foreground,
-                thickness: 1,
-                labelComponentWidth: 42,
-                // ⬇️ THIS is the main fix
-                avoidOverlappingOfLabels: true,
-              }}
+              // extraRadius={80}
+              // showExternalLabels
+              // showValuesAsLabels
+              // labelsPosition="mid"
+              // externalLabelComponent={(item: any) => {
+              //   return (
+              //     <SvgText
+              //       fontSize={11}
+              //       fontWeight="800"
+              //       fill={colors.foreground}
+              //     >
+              //       {item?.label}
+              //     </SvgText>
+              //   );
+              // }}
+              // labelLineConfig={{
+              //   // length: 8,
+              //   tailLength: 16,
+              //   color: colors.muted.foreground,
+              //   thickness: 1,
+              //   labelComponentWidth: 42,
+              //   // ⬇️ THIS is the main fix
+              //   avoidOverlappingOfLabels: true,
+              // }}
             />
           </View>
         ) : (
@@ -313,83 +378,34 @@ export default function StatsScreen() {
 
         {/* Category List */}
         {currentStats.length > 0 && (
-          <View className="px-4">
-            <Text
-              className="text-lg font-semibold mb-3"
+          <View className="mt-4">
+            {/* <Text
+              className="text-lg font-semibold mb-3 px-4"
               style={{ color: colors.foreground }}
             >
               Category Breakdown
-            </Text>
-            {currentStats.map((stat, index) => (
-              <CategoryListItem
-                key={stat.categoryId || `uncategorized-${index}`}
-                stat={stat}
-                colors={colors}
-                categoryBgColor={categoryBgColor}
-                currency={statsData.currency}
-              />
-            ))}
+            </Text> */}
+            <View
+              style={{
+                backgroundColor: "#222",
+                width: "100%",
+              }}
+            >
+              {currentStats.map((stat, index) => (
+                <CategoryListItem
+                  key={stat.categoryId || `uncategorized-${index}`}
+                  stat={stat}
+                  colors={colors}
+                  categoryBgColor={categoryBgColor}
+                  currency={statsData.currency}
+                  isLast={index === currentStats.length - 1}
+                  selectedType={selectedType}
+                />
+              ))}
+            </View>
           </View>
         )}
       </ScrollView>
-
-      {/* Period Modal */}
-      <Modal
-        visible={showPeriodModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPeriodModal(false)}
-      >
-        <TouchableOpacity
-          style={{
-            flex: 1,
-            backgroundColor: colors.overlay,
-            justifyContent: "center",
-            alignItems: "center",
-          }}
-          activeOpacity={1}
-          onPress={() => setShowPeriodModal(false)}
-        >
-          <View
-            style={{
-              backgroundColor: colors.card.DEFAULT,
-              borderRadius: 12,
-              padding: 20,
-              minWidth: 200,
-            }}
-          >
-            {periodOptions.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                onPress={() => {
-                  setPeriod(option.value);
-                  setShowPeriodModal(false);
-                }}
-                className="py-3 px-4 rounded-md"
-                style={{
-                  backgroundColor:
-                    period === option.value
-                      ? colors.primary.soft
-                      : "transparent",
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  className="text-base font-medium"
-                  style={{
-                    color:
-                      period === option.value
-                        ? colors.primary.DEFAULT
-                        : colors.foreground,
-                  }}
-                >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Month/Year Picker Modal (only shown when period is month) */}
       {period === "month" && (
@@ -413,19 +429,31 @@ interface CategoryListItemProps {
   colors: ReturnType<typeof useThemeColors>;
   categoryBgColor: string;
   currency: string;
+  isLast: boolean;
+  selectedType: "income" | "expense";
 }
 
-function CategoryListItem({ stat, colors, categoryBgColor, currency }: CategoryListItemProps) {
+function CategoryListItem({
+  stat,
+  colors,
+  categoryBgColor,
+  currency,
+  isLast,
+  selectedType,
+}: CategoryListItemProps) {
   return (
     <View
-      className="flex-row items-center justify-between py-3 px-4 mb-2 rounded-lg"
-      style={{ backgroundColor: colors.background.subtle }}
+      className="flex-row items-center justify-between py-2 px-4"
+      style={{
+        borderBottomWidth: isLast ? 0 : 1,
+        borderBottomColor: colors.border,
+      }}
     >
       <View className="flex-row items-center gap-3 flex-1">
         {/* Percentage Box */}
         <View
-          className="w-12 h-12 rounded-md items-center justify-center"
-          style={{ backgroundColor: categoryBgColor }}
+          className="size-8 rounded-md items-center justify-center"
+          style={{ backgroundColor: stat.categoryColor }}
         >
           <Text className="text-xs font-bold text-white">
             {Math.round(stat.percentage)}%
@@ -433,24 +461,21 @@ function CategoryListItem({ stat, colors, categoryBgColor, currency }: CategoryL
         </View>
 
         {/* Category Info */}
-        <View className="flex-1">
-          <View className="flex-row items-center gap-2">
-            <Text className="text-base">{stat.categoryEmoji}</Text>
-            <Text
-              className="text-base font-medium flex-1"
-              style={{ color: colors.foreground }}
-              numberOfLines={1}
-            >
-              {stat.categoryName}
-            </Text>
-          </View>
+        <View className="flex-row items-center gap-2 flex-1">
+          <Text className="text-base">{stat.categoryEmoji}</Text>
+          <Text
+            className="text-base font-medium flex-1"
+            style={{ color: colors.foreground }}
+            numberOfLines={1}
+          >
+            {stat.categoryName}
+          </Text>
         </View>
       </View>
 
       {/* Amount */}
       <Text
-        className="text-base font-semibold ml-2"
-        style={{ color: colors.foreground }}
+        className={`text-base font-semibold ml-2 ${selectedType === "income" ? colors.transaction.income.amountClass : colors.transaction.expense.amountClass}`}
       >
         {formatAmount(stat.totalAmount, currency)}
       </Text>
