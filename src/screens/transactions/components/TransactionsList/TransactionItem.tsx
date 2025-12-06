@@ -1,7 +1,10 @@
 import { Text, TouchableHighlight, View, Platform } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Transaction } from "@/types/transaction";
-import { type ThemeColors, getCategoryBackgroundColor } from "@/constants/theme";
+import {
+  type ThemeColors,
+  getCategoryBackgroundColor,
+} from "@/constants/theme";
 import { type TransactionTypeMeta } from "../../utils/typeMeta";
 import { formatAmount } from "../../utils/formatting";
 import { getAccountLabel } from "../../utils/accountLabel";
@@ -42,20 +45,33 @@ export function TransactionItem({
         {...rippleProps}
         className="px-4"
       >
-        <View className="flex-row items-center py-3">
+        <View className="flex-row items-center py-4">
           <View className="w-11 h-11 mr-3.5 relative">
             <View
               className="w-11 h-11 rounded-2xl items-center justify-center"
               style={{ backgroundColor: categoryBg }}
             >
-              {transaction.type === "transfer" ? (
+              {transaction.category?.emoji ? (
+                <Text className="text-2xl">{categoryEmoji}</Text>
+              ) : transaction.type === "transfer" ? (
                 <MaterialIcons
                   name="swap-horiz"
                   size={24}
                   color={colors.foreground}
                 />
+              ) : transaction.type === "expense" ? (
+                <MaterialIcons
+                  name="arrow-outward"
+                  size={24}
+                  color={colors.transaction.expense.badgeIcon}
+                />
               ) : (
-                <Text className="text-2xl">{categoryEmoji}</Text>
+                <MaterialIcons
+                  name="arrow-outward"
+                  className="rotate-180"
+                  size={24}
+                  color={colors.transaction.income.badgeIcon}
+                />
               )}
             </View>
           </View>
@@ -74,7 +90,8 @@ export function TransactionItem({
                   style={{ color: colors.muted.foreground }}
                 >
                   {transaction.category?.name ||
-                    transaction.type.replace("_", " ").charAt(0).toUpperCase() + transaction.type.replace("_", " ").slice(1)}
+                    transaction.type.replace("_", " ").charAt(0).toUpperCase() +
+                      transaction.type.replace("_", " ").slice(1)}
                 </Text>
               </View>
               <View className="items-end">

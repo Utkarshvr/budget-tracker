@@ -324,20 +324,33 @@ export default function StatsScreen() {
           >
             <PieChart
               data={pieData}
-              radius={100}
+              radius={120}
               // Text
               showText
               textSize={18}
               textColor={colors.foreground}
               // Stroke
-              strokeWidth={2}
+              strokeWidth={1}
               strokeColor={colors.background.DEFAULT}
-
+              // Dont
+              donut
+              innerCircleColor={colors.background.DEFAULT}
+              innerRadius={60}
+              centerLabelComponent={() => (
+                <View className="items-center justify-center">
+                  {/* <Text className="text-2xl font-bold">Total</Text> */}
+                  <Text
+                    className={`text-base font-bold ${selectedType === "income" ? colors.transaction.income.amountClass : colors.transaction.expense.amountClass}`}
+                  >
+                    {formatAmount(totalAmount, statsData.currency)}
+                  </Text>
+                </View>
+              )}
               // External Labels
               // extraRadius={80}
               // showExternalLabels
               // showValuesAsLabels
-              // labelsPosition="mid"
+              labelsPosition="outward"
               // externalLabelComponent={(item: any) => {
               //   return (
               //     <SvgText

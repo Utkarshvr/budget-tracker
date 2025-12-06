@@ -123,7 +123,7 @@ export function AccountCard({
         <View className="mt-4 flex-row items-center rounded-2xl bg-white/5 border border-white/10 px-4 py-3">
           <View className="flex-1 mr-3">
             <Text className="text-muted-foreground text-[10px] uppercase tracking-[0.2em]">
-              Spendable
+              Free to plan
             </Text>
             <Text className="text-primary text-xl font-semibold mt-1">
               {formatBalance(freeToSpend, account.currency)}
