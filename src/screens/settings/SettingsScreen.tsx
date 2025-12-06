@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -27,13 +28,6 @@ export default function SettingsScreen() {
 
   const email = user?.email ?? "";
 
-  const initials = displayName
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part: string) => part[0]?.toUpperCase())
-    .join("") || "U";
-
   const handleAccountSettings = () => {
     router.push("/(auth)/account-settings");
   };
@@ -50,16 +44,18 @@ export default function SettingsScreen() {
     >
       <View className="items-center mb-8">
         <View
-          className="w-24 h-24 rounded-full items-center justify-center"
+          className="w-24 h-24 rounded-full items-center justify-center overflow-hidden"
           style={{
             backgroundColor: colors.primary.soft,
             borderColor: colors.primary.border,
             borderWidth: 1,
           }}
         >
-          <Text className="text-2xl font-semibold" style={{ color: colors.primary.DEFAULT }}>
-            {initials}
-          </Text>
+          <Image
+            source={require("@/assets/brand/icon.png")}
+            style={{ width: 96, height: 96 }}
+            resizeMode="contain"
+          />
         </View>
         <Text
           className="mt-4 text-lg font-semibold text-center"
