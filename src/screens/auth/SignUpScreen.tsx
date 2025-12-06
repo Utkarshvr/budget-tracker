@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Link, router } from "expo-router";
 import { Text, View, TextInput } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { getAuthRedirectUrl } from "@/lib/auth-redirect";
 import { AuthScaffold } from "./components/AuthScaffold";
 import { FormField } from "./components/FormField";
 import { PrimaryButton } from "./components/PrimaryButton";
@@ -29,9 +30,16 @@ export default function SignUpScreen() {
     }
 
     setLoading(true);
+    
+    // Get the correct redirect URL based on environment
+    const redirectUrl = await getAuthRedirectUrl();
+    
     const { data, error: authError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
     });
 
     if (authError) {
@@ -40,20 +48,12 @@ export default function SignUpScreen() {
       return;
     }
 
-    if (!data.session) {
-      const { error: signinError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (signinError) {
-        setError(signinError.message);
-        setLoading(false);
-        return;
-      }
-    }
-
+    // Don't auto-login, redirect to verification screen
     setLoading(false);
-    router.replace("/(public)/complete-profile");
+    router.replace({
+      pathname: "/(public)/verify-email",
+      params: { email },
+    });
   };
 
   return (
